@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduFinance - Painel do Estudante</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+    <div id="login-container">
+        <div class="login-box">
+            <h2>EduFinance</h2>
+            <p style="color:#6c757d; font-size:14px; margin-bottom:1.5rem;">Plataforma de Simulação e Lições</p>
+            <form onsubmit="realizarLogin(event)">
+                <div class="form-group">
+                    <label>Seu Nome</label>
+                    <input type="text" id="username" placeholder="Digite seu nome..." required>
+                </div>
+                <div class="form-group">
+                    <label>Seu E-mail</label>
+                    <input type="email" id="email" placeholder="Digite seu e-mail..." required>
+                </div>
+                <button type="submit" class="btn">Entrar</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="main-layout">
+        
+        <aside>
+            <h1>EduFinance</h1>
+            <ul class="menu-list">
+                <li class="menu-item active" onclick="mostrarSecao('dashboard', this)">Painel Geral</li>
+                <li class="menu-item" onclick="mostrarSecao('aulas', this)">Trilha de Aulas</li>
+                <li class="menu-item" onclick="mostrarSecao('simulador', this)">Simulador</li>
+                <li class="menu-item" onclick="mostrarSecao('ranking', this)">Ranking Global</li>
+            </ul>
+
+            <div class="user-widget">
+                <p style="font-weight: 700;" id="user-display-name">Estudante</p>
+                <p style="font-size: 13px; color: #0d6efd;" id="user-display-level">Nível 1</p>
+                <button class="btn" style="padding: 0.4rem; font-size: 12px; margin-top: 5px;" onclick="fazerLogout()">Sair</button>
+            </div>
+        </aside>
+
+        <main>
+            
+            <section id="sec-dashboard" class="section active">
+                <div class="banner">
+                    <div>
+                        <h2 style="font-size: 22px; color: #212529;">Bem-vindo, <span id="banner-username">Estudante</span>!</h2>
+                        <p style="color: #6c757d; margin-top: 0.25rem; font-size: 14px;">Gerencie seu progresso financeiro e simulado.</p>
+                    </div>
+                    <div style="text-align: right;">
+                        <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Saldo Virtual</span>
+                        <h2 style="color: #198754; font-size: 24px; font-weight: 700; margin-top: 0.25rem;" id="dashboard-balance">R$ 100.000,00</h2>
+                    </div>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Pontos de XP</h3>
+                        <p id="dashboard-xp">0 XP</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Nível</h3>
+                        <p id="dashboard-level">Nível 1</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Aulas Concluídas</h3>
+                        <p id="dashboard-lessons-count">0 / 5</p>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>🏆 Suas Conquistas</h2>
+                    <div class="badge-grid">
+                        <div class="badge-card" id="b-primeira-aula">
+                            <span style="font-size: 24px;">🎓</span>
+                            <h4>Primeira Aula</h4>
+                            <p>Concluiu a primeira aula.</p>
+                        </div>
+                        <div class="badge-card" id="b-investidor-bronze">
+                            <span style="font-size: 24px;">🥉</span>
+                            <h4>Investidor Bronze</h4>
+                            <p>Alcançou 100 XP.</p>
+                        </div>
+                        <div class="badge-card" id="b-simulador-pro">
+                            <span style="font-size: 24px;">📈</span>
+                            <h4>Simulador Pro</h4>
+                            <p>Fez uma simulação.</p>
+                        </div>
+                        <div class="badge-card" id="b-mestre-financas">
+                            <span style="font-size: 24px;">👑</span>
+                            <h4>Mestre das Finanças</h4>
+                            <p>Concluiu todas as aulas.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="sec-aulas" class="section">
+                <div id="lessons-list-view" class="panel">
+                    <h2>Selecione um Módulo</h2>
+                    <div class="tabs">
+                        <button class="tab-btn active" onclick="carregarModulo('fundamentos', this)">Fundamentos</button>
+                        <button class="tab-btn" onclick="carregarModulo('planejamento', this)">Planejamento</button>
+                        <button class="tab-btn" onclick="carregarModulo('investimentos', this)">Investimentos</button>
+                    </div>
+                    <div id="lessons-container">
+                    </div>
+                </div>
+
+                <div id="lesson-viewer" class="panel">
+                    <button class="tab-btn" style="margin-bottom: 1.5rem;" onclick="voltarParaLista()">← Voltar</button>
+                    <h2 style="font-size: 22px;" id="viewer-title">Título da Aula</h2>
+                    <p style="margin-top: 1rem; line-height: 1.6; font-size: 15px;" id="viewer-content">Conteúdo aqui...</p>
+                    <div class="example-box" id="viewer-example">Exemplo aqui...</div>
+
+                    <div style="margin-top: 2rem; border-top: 1px solid #dee2e6; padding-top: 1.5rem;">
+                        <h3 style="margin-bottom: 1rem; font-size: 16px;" id="viewer-question">Questão: ...</h3>
+                        <div id="options-container">
+                        </div>
+                        <button class="btn" style="margin-top: 1rem; width: auto; padding: 0.5rem 1.5rem;" onclick="enviarRespostaQuiz()">Enviar Resposta</button>
+                        <div class="feedback" id="quiz-feedback">
+                            <h4 id="feedback-status">Correto</h4>
+                            <p id="feedback-text" style="font-size: 13px; margin-top: 5px;"></p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="sec-simulador" class="section">
+                <div class="panel">
+                    <h2>Calculadora de Investimento Simulado</h2>
+                    <div class="flex-container">
+                        <div class="flex-col">
+                            <div class="form-group">
+                                <label>Tipo de Investimento</label>
+                                <select id="sim-type">
+                                    <option value="Poupança">Caderneta de Poupança (6.17% a.a.)</option>
+                                    <option value="CDB 100% CDI">CDB 100% CDI (12.0% a.a.)</option>
+                                    <option value="Tesouro Selic">Tesouro Selic (10.5% a.a.)</option>
+                                    <option value="Renda Variável">Ações bolsa de valores (15.0% a.a.)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Valor Inicial (R$)</label>
+                                <input type="number" id="sim-initial" value="1000">
+                            </div>
+                            <div class="form-group">
+                                <label>Aporte Mensal (R$)</label>
+                                <input type="number" id="sim-monthly" value="100">
+                            </div>
+                            <div class="form-group">
+                                <label>Meses de Duração</label>
+                                <input type="number" id="sim-months" value="12">
+                            </div>
+                            <button class="btn" onclick="calcularJurosCompostos()">Calcular Rentabilidade</button>
+                        </div>
+
+                        <div class="flex-col" style="background-color: #f8f9fa; padding: 1.5rem; border-radius: 6px; border: 1px solid #dee2e6;">
+                            <h3 style="color: #6c757d; font-size: 12px; text-transform: uppercase;">Resultado Esperado</h3>
+                            <h1 style="color: #198754; font-size: 32px; margin: 1rem 0;" id="sim-result-final">R$ 0,00</h1>
+                            <p style="font-size: 13px; color: #6c757d;" id="sim-result-desc">
+                                Preencha os valores e clique no botão para simular a projeção dos juros.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h2>Histórico das Simulações</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Tipo</th>
+                                <th>Valor Inicial</th>
+                                <th>Aporte Mensal</th>
+                                <th>Meses</th>
+                                <th>Valor Final</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sim-history-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="sec-ranking" class="section">
+                <div class="panel">
+                    <h2>Classificação dos Estudantes</h2>
+                    <p style="color: #6c757d; font-size: 14px; margin-bottom: 1rem;">Ranking global baseado nos pontos de experiência (XP).</p>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Posição</th>
+                                <th>Nome</th>
+                                <th>Nível</th>
+                                <th>Saldo Acumulado</th>
+                                <th>XP Acumulado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ranking-tbody">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="index.js" defer></script>
+</body>
+</html>
