@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EduFinance - Painel do Estudante</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="index.css">
 </head>
+
 <body>
 
     <div id="login-container">
@@ -28,7 +31,7 @@
     </div>
 
     <div id="main-layout">
-        
+
         <aside>
             <h1>EduFinance</h1>
             <ul class="menu-list">
@@ -36,26 +39,45 @@
                 <li class="menu-item" onclick="mostrarSecao('aulas', this)">Trilha de Aulas</li>
                 <li class="menu-item" onclick="mostrarSecao('simulador', this)">Simulador</li>
                 <li class="menu-item" onclick="mostrarSecao('ranking', this)">Ranking Global</li>
+                <li class="menu-item" onclick="mostrarSecao('blog', this)">Blog</li>
             </ul>
 
             <div class="user-widget">
                 <p style="font-weight: 700;" id="user-display-name">Estudante</p>
                 <p style="font-size: 13px; color: #0d6efd;" id="user-display-level">Nível 1</p>
-                <button class="btn" style="padding: 0.4rem; font-size: 12px; margin-top: 5px;" onclick="fazerLogout()">Sair</button>
+                <button class="btn" style="padding: 0.4rem; font-size: 12px; margin-top: 5px;"
+                    onclick="fazerLogout()">Sair</button>
             </div>
         </aside>
 
         <main>
-            
+
+            <section id="sec-blog" class="section">
+                <div class="panel">
+                    <h2>Artigos e Notícias de Finanças</h2>
+                    <p style="color: #6c757d; font-size: 14px; margin-bottom: 1.5rem;">
+                        Acompanhe notícias e artigos reais do mercado financeiro e ganhe XP ao se manter informado!
+                    </p>
+                    <div id="blog-articles-container" class="blog-grid">
+                        <!-- Articles will be loaded here dynamically -->
+                    </div>
+                </div>
+            </section>
+
             <section id="sec-dashboard" class="section active">
                 <div class="banner">
                     <div>
-                        <h2 style="font-size: 22px; color: #212529;">Bem-vindo, <span id="banner-username">Estudante</span>!</h2>
-                        <p style="color: #6c757d; margin-top: 0.25rem; font-size: 14px;">Gerencie seu progresso financeiro e simulado.</p>
+                        <h2 style="font-size: 22px; color: #212529;">Bem-vindo, <span
+                                id="banner-username">Estudante</span>!</h2>
+                        <p style="color: #6c757d; margin-top: 0.25rem; font-size: 14px;">Gerencie seu progresso
+                            financeiro e simulado.</p>
                     </div>
                     <div style="text-align: right;">
-                        <span style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Saldo Virtual</span>
-                        <h2 style="color: #198754; font-size: 24px; font-weight: 700; margin-top: 0.25rem;" id="dashboard-balance">R$ 100.000,00</h2>
+                        <span
+                            style="font-size: 12px; color: #6c757d; text-transform: uppercase; font-weight: 600;">Saldo
+                            Virtual</span>
+                        <h2 style="color: #198754; font-size: 24px; font-weight: 700; margin-top: 0.25rem;"
+                            id="dashboard-balance">R$ 100.000,00</h2>
                     </div>
                 </div>
 
@@ -105,7 +127,8 @@
                 <div id="lessons-list-view" class="panel">
                     <h2>Selecione um Módulo</h2>
                     <div class="tabs">
-                        <button class="tab-btn active" onclick="carregarModulo('fundamentos', this)">Fundamentos</button>
+                        <button class="tab-btn active"
+                            onclick="carregarModulo('fundamentos', this)">Fundamentos</button>
                         <button class="tab-btn" onclick="carregarModulo('planejamento', this)">Planejamento</button>
                         <button class="tab-btn" onclick="carregarModulo('investimentos', this)">Investimentos</button>
                     </div>
@@ -116,14 +139,16 @@
                 <div id="lesson-viewer" class="panel">
                     <button class="tab-btn" style="margin-bottom: 1.5rem;" onclick="voltarParaLista()">← Voltar</button>
                     <h2 style="font-size: 22px;" id="viewer-title">Título da Aula</h2>
-                    <p style="margin-top: 1rem; line-height: 1.6; font-size: 15px;" id="viewer-content">Conteúdo aqui...</p>
+                    <p style="margin-top: 1rem; line-height: 1.6; font-size: 15px;" id="viewer-content">Conteúdo aqui...
+                    </p>
                     <div class="example-box" id="viewer-example">Exemplo aqui...</div>
 
                     <div style="margin-top: 2rem; border-top: 1px solid #dee2e6; padding-top: 1.5rem;">
                         <h3 style="margin-bottom: 1rem; font-size: 16px;" id="viewer-question">Questão: ...</h3>
                         <div id="options-container">
                         </div>
-                        <button class="btn" style="margin-top: 1rem; width: auto; padding: 0.5rem 1.5rem;" onclick="enviarRespostaQuiz()">Enviar Resposta</button>
+                        <button class="btn" style="margin-top: 1rem; width: auto; padding: 0.5rem 1.5rem;"
+                            onclick="enviarRespostaQuiz()">Enviar Resposta</button>
                         <div class="feedback" id="quiz-feedback">
                             <h4 id="feedback-status">Correto</h4>
                             <p id="feedback-text" style="font-size: 13px; margin-top: 5px;"></p>
@@ -161,9 +186,12 @@
                             <button class="btn" onclick="calcularJurosCompostos()">Calcular Rentabilidade</button>
                         </div>
 
-                        <div class="flex-col" style="background-color: #f8f9fa; padding: 1.5rem; border-radius: 6px; border: 1px solid #dee2e6;">
-                            <h3 style="color: #6c757d; font-size: 12px; text-transform: uppercase;">Resultado Esperado</h3>
-                            <h1 style="color: #198754; font-size: 32px; margin: 1rem 0;" id="sim-result-final">R$ 0,00</h1>
+                        <div class="flex-col"
+                            style="background-color: #f8f9fa; padding: 1.5rem; border-radius: 6px; border: 1px solid #dee2e6;">
+                            <h3 style="color: #6c757d; font-size: 12px; text-transform: uppercase;">Resultado Esperado
+                            </h3>
+                            <h1 style="color: #198754; font-size: 32px; margin: 1rem 0;" id="sim-result-final">R$ 0,00
+                            </h1>
                             <p style="font-size: 13px; color: #6c757d;" id="sim-result-desc">
                                 Preencha os valores e clique no botão para simular a projeção dos juros.
                             </p>
@@ -192,7 +220,8 @@
             <section id="sec-ranking" class="section">
                 <div class="panel">
                     <h2>Classificação dos Estudantes</h2>
-                    <p style="color: #6c757d; font-size: 14px; margin-bottom: 1rem;">Ranking global baseado nos pontos de experiência (XP).</p>
+                    <p style="color: #6c757d; font-size: 14px; margin-bottom: 1rem;">Ranking global baseado nos pontos
+                        de experiência (XP).</p>
                     <table>
                         <thead>
                             <tr>
@@ -214,4 +243,5 @@
 
     <script src="index.js" defer></script>
 </body>
+
 </html>

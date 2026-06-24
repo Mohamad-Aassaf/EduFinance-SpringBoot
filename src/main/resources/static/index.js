@@ -26,7 +26,7 @@ async function realizarLogin(e) {
         } else {
             alert("Erro ao realizar login. Tente novamente.");
         }
-    } catch(err) {
+    } catch (err) {
         console.error(err);
         alert("Erro ao conectar ao servidor Spring Boot na porta 8080. Verifique se ele está rodando.");
     }
@@ -57,16 +57,78 @@ function mostrarSecao(secaoId, menuEl) {
         carregarHistoricoSimulacoes();
     } else if (secaoId === "ranking") {
         carregarRanking();
+    } else if (secaoId === 'blog') {
+        carregarBlog();
     }
 }
 
-// UI
 function atualizarPerfilUI() {
     if (!userLogged) return;
     document.getElementById("user-display-name").innerText = userLogged.nome;
     document.getElementById("user-display-level").innerText = `Nível ${userLogged.nivel}`;
     document.getElementById("banner-username").innerText = userLogged.nome;
     document.getElementById("dashboard-balance").innerText = formatarDinheiro(userLogged.saldoVirtual);
+}
+
+async function carregarBlog() {
+    if (!userLogged) return;
+
+    // 1. Fetch user progress reward (XP)
+    try {
+        const resB = await fetch(`${API_URL}/blog/${userLogged.id}`);
+        if (resB.ok) {
+            const perfilAtualizado = await resB.json();
+            // Check if level increased to display feedback
+            if (perfilAtualizado.nivel > userLogged.nivel) {
+                alert(`Parabéns! Você subiu para o Nível ${perfilAtualizado.nivel}!`);
+            }
+            userLogged = perfilAtualizado;
+            atualizarPerfilUI();
+        }
+    } catch (err) {
+        console.error("Erro ao atualizar XP do blog:", err);
+    }
+
+    // 2. Fetch news articles
+    const container = document.getElementById("blog-articles-container");
+    container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #6c757d; padding: 2rem;">Carregando notícias...</div>`;
+
+    try {
+        const resN = await fetch(`${API_URL}/blog/news`);
+        if (resN.ok) {
+            const data = await resN.json();
+            container.innerHTML = "";
+
+            if (!data.articles || data.articles.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #6c757d; padding: 2rem;">Nenhum artigo encontrado no momento.</div>`;
+                return;
+            }
+
+            data.articles.forEach(article => {
+                const imgUrl = article.urlToImage || "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?q=80&w=640&auto=format&fit=crop"; // default finance placeholder
+                const date = new Date(article.publishedAt).toLocaleDateString('pt-BR');
+                const source = article.source ? article.source.name : "Notícia";
+
+                const card = document.createElement("div");
+                card.className = "blog-card";
+                card.innerHTML = `
+                    <img src="${imgUrl}" alt="Imagem do artigo" onerror="this.src='https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?q=80&w=640&auto=format&fit=crop'">
+                    <div class="blog-card-content">
+                        <div class="blog-card-meta">${source} • ${date}</div>
+                        <h3 class="blog-card-title">${article.title}</h3>
+                        <p class="blog-card-description">${article.description || "Clique no link abaixo para ler os detalhes da matéria."}</p>
+                        <a href="${article.url}" target="_blank" class="blog-card-link">Ler notícia completa →</a>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        } else {
+            container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #dc3545; padding: 2rem;">Erro ao carregar os artigos. Verifique a chave de API.</div>`;
+        }
+    } catch (err) {
+        console.error("Erro ao buscar notícias:", err);
+        container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: #dc3545; padding: 2rem;">Erro de conexão com o servidor.</div>`;
+    }
 }
 
 async function carregarDashboard() {
@@ -109,7 +171,7 @@ function atualizarBadges(completedCount) {
     if (userLogged.xp >= 100) {
         document.getElementById("b-investidor-bronze").classList.add("unlocked");
     }
-    
+
     fetch(`${API_URL}/simulacoes/usuario/${userLogged.id}`)
         .then(r => r.json())
         .then(sims => {
@@ -122,7 +184,7 @@ function atualizarBadges(completedCount) {
 let currentModule = "fundamentos";
 async function carregarModulo(moduloName, btnEl = null) {
     currentModule = moduloName;
-    
+
     if (btnEl) {
         document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
         btnEl.classList.add("active");
@@ -131,7 +193,7 @@ async function carregarModulo(moduloName, btnEl = null) {
     try {
         const resL = await fetch(`${API_URL}/licoes/modulo/${moduloName}`);
         const resP = await fetch(`${API_URL}/licoes/usuario/${userLogged.id}/progresso`);
-        
+
         if (resL.ok && resP.ok) {
             lessons = await resL.json();
             const progress = await resP.json();
@@ -156,13 +218,13 @@ async function carregarModulo(moduloName, btnEl = null) {
                 container.appendChild(div);
             });
         }
-    } catch(e) { console.error(e); }
+    } catch (e) { console.error(e); }
 }
 
 function verAula(lesson, isDone) {
     activeLesson = lesson;
     selectedOption = null;
-    
+
     document.getElementById("lessons-list-view").style.display = "none";
     document.getElementById("lesson-viewer").style.display = "block";
 
@@ -226,7 +288,7 @@ function exibirFeedbackQuiz(isCorrect, explanation, customTitle = "") {
 
     f.style.display = "block";
     text.innerText = explanation;
-    
+
     if (isCorrect) {
         f.className = "feedback success";
         status.innerText = customTitle || "✔️ RESPOSTA CORRETA!";
@@ -255,7 +317,7 @@ async function enviarRespostaQuiz() {
         if (res.ok) {
             const result = await res.json();
             destacarOpcaoCorreta(activeQuiz.respostaCorreta);
-            
+
             if (result.correto) {
                 exibirFeedbackQuiz(true, result.explicacao);
                 alert(`Parabéns! Você ganhou +${result.xpGanho} XP!`);
@@ -269,7 +331,7 @@ async function enviarRespostaQuiz() {
                 exibirFeedbackQuiz(false, "Sua resposta está errada. Tente ler o conteúdo novamente e faça uma nova tentativa.");
             }
         }
-    } catch(e) { console.error(e); }
+    } catch (e) { console.error(e); }
 }
 
 function voltarParaLista() {
@@ -315,9 +377,9 @@ async function calcularJurosCompostos() {
 
         if (res.ok) {
             const result = await res.json();
-            
+
             document.getElementById("sim-result-final").innerText = formatarDinheiro(result.simulacao.valorFinal);
-            
+
             const totalInvestido = initial + (monthly * months);
             const jurosAcumulados = result.simulacao.valorFinal - totalInvestido;
 
@@ -331,7 +393,7 @@ async function calcularJurosCompostos() {
             atualizarPerfilUI();
             carregarHistoricoSimulacoes();
         }
-    } catch(e) { console.error(e); }
+    } catch (e) { console.error(e); }
 }
 
 async function carregarHistoricoSimulacoes() {
@@ -359,7 +421,7 @@ async function carregarHistoricoSimulacoes() {
                 `;
             });
         }
-    } catch(e) { console.error(e); }
+    } catch (e) { console.error(e); }
 }
 
 async function carregarRanking() {
@@ -373,7 +435,7 @@ async function carregarRanking() {
             rankings.forEach((profile, index) => {
                 const isMe = userLogged && userLogged.id === profile.id;
                 const meStyle = isMe ? "background-color: #e8f1ff; font-weight: bold; border-left: 4px solid #0d6efd;" : "";
-                
+
                 tbody.innerHTML += `
                     <tr style="${meStyle}">
                         <td>#${index + 1}</td>
@@ -385,7 +447,7 @@ async function carregarRanking() {
                 `;
             });
         }
-    } catch(e) { console.error(e); }
+    } catch (e) { console.error(e); }
 }
 
 function formatarDinheiro(valor) {
