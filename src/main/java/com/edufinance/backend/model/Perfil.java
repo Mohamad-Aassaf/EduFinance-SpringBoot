@@ -1,6 +1,7 @@
 package com.edufinance.backend.model;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 
 @Entity
@@ -16,6 +17,9 @@ public class Perfil {
 
     @Column(nullable = false, unique = true)
     private String email;
+
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private String senha;
 
     private int xp = 0;
 
@@ -66,6 +70,14 @@ public class Perfil {
 
     public void setEmail(String email) {
         this.email = email;
+    }
+
+    public String getSenha() {
+        return senha;
+    }
+
+    public void setSenha(String senha) {
+        this.senha = senha;
     }
 
     public int getXp() {

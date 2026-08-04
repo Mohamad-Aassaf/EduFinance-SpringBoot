@@ -44,7 +44,7 @@ public class SimulacaoController {
 
         double taxaMensal = (taxaAnual / 12.0) / 100.0;
         double valorFinal = 0;
-        
+
         if (taxaMensal == 0) {
             valorFinal = valorInicial + (aporteMensal * tempoMeses);
         } else {
@@ -64,7 +64,7 @@ public class SimulacaoController {
         sim.setTempoMeses(tempoMeses);
         sim.setValorFinal(valorFinal);
         sim.setCriadoEm(LocalDateTime.now());
-        
+
         Simulacao simSalva = simulacaoRepository.save(sim);
 
         perfil.setSaldoVirtual(valorFinal);

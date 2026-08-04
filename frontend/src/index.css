@@ -1,0 +1,215 @@
+/*
+ * ═══════════════════════════════════════════════════════════════════
+ *  EduFinance — Global CSS
+ *  Aqui definimos: fontes, cores, modo escuro, animações e utilitários
+ * ═══════════════════════════════════════════════════════════════════
+ */
+
+/* 1. Importa a fonte Inter do Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+/* 2. Importa o Tailwind CSS */
+@import "tailwindcss";
+
+/*
+ * 3. DARK MODE — Configuração para o Tailwind v4
+ *
+ * O @custom-variant diz ao Tailwind:
+ * "Quando um elemento (ou qualquer pai dele) tiver a classe .dark,
+ * ative os utilitários dark:..."
+ *
+ * Exemplo: dark:bg-slate-900 → só aplica bg-slate-900 se estiver dentro de .dark
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── 4. VARIÁVEIS DE COR (Design Tokens) ─────────────────────────────
+ *
+ * Usamos variáveis CSS (:root) para centralizar todas as cores.
+ * Assim, mudar a paleta é fácil — só altere aqui.
+ * 
+ * No modo escuro (.dark), sobrescrevemos essas variáveis.
+ */
+:root {
+  /* Paleta principal */
+  --color-primary:          #2563EB;  /* Azul principal — botões, links, estados ativos */
+  --color-primary-dark:     #1E3A8A;  /* Azul escuro — sidebar, cabeçalhos */
+  --color-accent:           #F97316;  /* Laranja — XP, conquistas, destaques */
+  --color-text-on-primary:  #FFFFFF;  /* Texto SOBRE a cor primary (branco para azul, escuro para amarelo) */
+
+  /* Fundos */
+  --color-bg:            #F8FAFC;  /* Fundo da página */
+  --color-bg-card:       #FFFFFF;  /* Fundo dos cards */
+  --color-bg-input:      #F8FAFC;  /* Fundo dos campos de texto */
+
+  /* Textos */
+  --color-text:          #0F172A;  /* Texto principal */
+  --color-text-muted:    #64748B;  /* Texto secundário */
+  --color-text-light:    #94A3B8;  /* Texto muito suave */
+
+  /* Bordas */
+  --color-border:        #E2E8F0;
+  --color-border-focus:  #2563EB;
+
+  /* Sombras */
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/*
+ * MODO ESCURO — sobrescreve as variáveis acima quando
+ * o elemento <html> tiver a classe "dark"
+ */
+html.dark {
+  --color-bg:            #0F172A;  /* Fundo escuro da página */
+  --color-bg-card:       #1E2942;  /* Cards escuros */
+  --color-bg-input:      #162032;  /* Inputs escuros */
+  --color-text:          #F1F5F9;  /* Texto claro */
+  --color-text-muted:    #94A3B8;  /* Texto secundário claro */
+  --color-text-light:    #64748B;
+  --color-border:        rgba(148, 163, 184, 0.12);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* ─── 5. ESTILOS BASE ─────────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+}
+
+/*
+ * Aumentamos o font-size base para 17px.
+ * Tailwind usa rem, então aumentar o root torna TUDO proporcionalmente maior.
+ * Padrão do browser é 16px. Com 17px, o texto xs (0.75rem) fica ≈ 12.75px.
+ */
+html {
+  font-size: 17px;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ─── 6. DARK MODE — Overrides globais ───────────────────────────────
+ *
+ * Aqui sobrescrevemos as classes do Tailwind mais comuns para o modo escuro.
+ * Essa abordagem "global" evita ter que adicionar dark: em TODOS os elementos.
+ *
+ * Usamos html.dark para garantir especificidade maior que as classes do Tailwind.
+ */
+html.dark .bg-white           { background-color: var(--color-bg-card) !important; }
+html.dark .bg-slate-50        { background-color: #111d2e !important; }
+html.dark .bg-slate-100       { background-color: #162032 !important; }
+html.dark .border-slate-50    { border-color: rgba(148, 163, 184, 0.08) !important; }
+html.dark .border-slate-100   { border-color: rgba(148, 163, 184, 0.12) !important; }
+html.dark .border-slate-200   { border-color: rgba(148, 163, 184, 0.15) !important; }
+html.dark .text-slate-900     { color: #f1f5f9 !important; }
+html.dark .text-slate-800     { color: #e2e8f0 !important; }
+html.dark .text-slate-700     { color: #cbd5e1 !important; }
+html.dark .text-slate-600     { color: #94a3b8 !important; }
+html.dark .text-slate-500     { color: #64748b !important; }
+html.dark .text-slate-400     { color: #475569 !important; }
+html.dark .shadow-sm          { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
+html.dark .shadow-md          { box-shadow: 0 4px 6px rgba(0,0,0,0.4) !important; }
+html.dark .shadow-xl          { box-shadow: 0 20px 25px rgba(0,0,0,0.5) !important; }
+html.dark .shadow-2xl         { box-shadow: 0 25px 50px rgba(0,0,0,0.6) !important; }
+
+/* Inputs no modo escuro */
+html.dark input,
+html.dark select,
+html.dark textarea {
+  background-color: var(--color-bg-input) !important;
+  color: var(--color-text) !important;
+  border-color: rgba(148, 163, 184, 0.2) !important;
+}
+
+/* ─── 7. BARRA DE ROLAGEM (Scrollbar) ────────────────────────────── */
+
+::-webkit-scrollbar         { width: 5px; height: 5px; }
+::-webkit-scrollbar-track   { background: transparent; }
+::-webkit-scrollbar-thumb   { background: #cbd5e1; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+html.dark ::-webkit-scrollbar-thumb { background: #334155; }
+
+/* ─── 8. ANIMAÇÕES ────────────────────────────────────────────────── */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); }
+  30%            { transform: translateY(-4px); }
+}
+
+.animate-fade-in  { animation: fadeIn 0.3s ease-out; }
+.animate-scale-in { animation: scaleIn 0.2s ease-out; }
+.animate-slide-up { animation: slideUp 0.3s ease-out; }
+
+/* ─── 9. INSPECTOR — Efeito de destaque ao hover ─────────────────── */
+
+/*
+ * Classe aplicada dinamicamente via JavaScript.
+ * Quando o modo Inspector está ativo, o elemento sob o cursor
+ * recebe um anel azul e um fundo levemente colorido.
+ */
+.finbot-inspect-target {
+  outline: 2.5px solid #2563EB !important;
+  outline-offset: 3px !important;
+  border-radius: 6px !important;
+  background-color: rgba(37, 99, 235, 0.06) !important;
+  cursor: crosshair !important;
+  transition: outline 0.1s ease, background-color 0.1s ease;
+}
+
+/* Cursor crosshair em todos os filhos quando o modo inspector está ativo */
+body.finbot-inspecting * {
+  cursor: crosshair !important;
+}
+
+/* ─── 10. ESTILOS MARKDOWN para mensagens do FinBot ──────────────── */
+
+/* O FinBot retorna texto com Markdown. Esses estilos formatam a saída. */
+.bot-message h1, .bot-message h2, .bot-message h3 {
+  font-weight: 700;
+  margin: 0.5em 0 0.25em;
+}
+.bot-message ul, .bot-message ol { padding-left: 1.25em; margin: 0.25em 0; }
+.bot-message li  { margin: 0.15em 0; }
+.bot-message strong { font-weight: 700; }
+.bot-message code {
+  background: #e2e8f0;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.85em;
+  font-family: 'Courier New', monospace;
+}
+html.dark .bot-message code { background: #334155; }
+
+/* ─── 11. TIPAGEM (Typing indicator do FinBot) ───────────────────── */
+
+.typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2563EB;
+  display: inline-block;
+  animation: typing 1.2s ease-in-out infinite;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.30s; }
