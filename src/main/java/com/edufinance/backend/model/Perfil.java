@@ -34,6 +34,16 @@ public class Perfil {
     @Column(name = "criado_em")
     private LocalDateTime criadoEm = LocalDateTime.now();
 
+    // Localização informada pelo próprio usuário (usada nos rankings regionais)
+    @Column(length = 2)
+    private String pais;
+
+    @Column(length = 60)
+    private String estado;
+
+    @Column(length = 80)
+    private String cidade;
+
     public Perfil() {
     }
 
@@ -118,5 +128,29 @@ public class Perfil {
 
     public void setCriadoEm(LocalDateTime criadoEm) {
         this.criadoEm = criadoEm;
+    }
+
+    public String getPais() {
+        return pais;
+    }
+
+    public void setPais(String pais) {
+        this.pais = pais;
+    }
+
+    public String getEstado() {
+        return estado;
+    }
+
+    public void setEstado(String estado) {
+        this.estado = estado;
+    }
+
+    public String getCidade() {
+        return cidade;
+    }
+
+    public void setCidade(String cidade) {
+        this.cidade = cidade;
     }
 }

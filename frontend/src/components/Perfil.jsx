@@ -26,9 +26,10 @@ import { useState, useEffect } from "react";
 import {
   Award, Zap, Trophy, Flame, Star, BookOpen, TrendingUp,
   Calendar, Shield, Sparkles, Crown, Pencil, Palette,
-  ChevronRight, CheckCircle, RefreshCw, X, Server
+  ChevronRight, CheckCircle, RefreshCw, X, Server, MapPin
 } from "lucide-react";
 import { api } from "../api";
+import { LocalizacaoForm } from "./rankingShared";
 import AdminAiHostModal from "./AdminAiHostModal";
 
 // ─── PERGUNTAS DO TESTE DE PERFIL DE INVESTIDOR ────────────────────────────
@@ -330,6 +331,18 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
             Refazer Teste
           </button>
         </div>
+      </div>
+
+      {/* ── LOCALIZAÇÃO (rankings regionais) ───────────────────────────── */}
+      <div className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 space-y-4">
+        <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
+          <MapPin className="w-4 h-4" style={{ color: "var(--color-primary)" }} />
+          Localização
+          <span className="text-[10px] font-normal text-slate-400 ml-1">
+            — Define seus rankings de país, estado e cidade
+          </span>
+        </h3>
+        <LocalizacaoForm user={user} onUpdateUser={onUpdateUser} />
       </div>
 
       {/* ── SELETOR DE PALETA DE CORES ─────────────────────────────────── */}
