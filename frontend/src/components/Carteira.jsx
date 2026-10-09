@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Wallet, DollarSign, PieChart, TrendingUp, TrendingDown, ArrowDownUp } from "lucide-react";
 import { api } from "../api";
+import ReactApexChart from "react-apexcharts";
 
 const MOCK_PRICES = {
   DEMO3: 25.50,
@@ -123,21 +124,63 @@ export default function Carteira({ user, onUpdateUser }) {
   // Cores do gráfico circular
   const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
-  // Calcula fatias para o gráfico conic-gradient
-  const pieStyles = (() => {
-    if (holdings.length === 0) return {};
-    let currentAngle = 0;
-    const slices = holdings.map((h, i) => {
-      const value = h.quantity * (MOCK_PRICES[h.stockCode] || h.avgPrice);
-      const percentage = (value / valorAcoes) * 100;
-      const start = currentAngle;
-      currentAngle += percentage;
-      return `${COLORS[i % COLORS.length]} ${start.toFixed(1)}% ${currentAngle.toFixed(1)}%`;
-    });
-    return {
-      background: `conic-gradient(${slices.join(", ")})`
-    };
-  })();
+  // Configurações do gráfico Donut da ApexCharts
+  const seriesPie = holdings.map(h => h.quantity * (MOCK_PRICES[h.stockCode] || h.avgPrice));
+  const labelsPie = holdings.map(h => h.stockCode);
+
+  const optionsPie = {
+    chart: {
+      type: "donut",
+      animations: { enabled: true, speed: 600 }
+    },
+    colors: COLORS,
+    labels: labelsPie,
+    legend: {
+      show: true,
+      position: "bottom",
+      fontSize: "10px",
+      fontWeight: 700,
+      labels: { colors: "#475569" },
+      markers: { size: 4 }
+    },
+    plotOptions: {
+      pie: {
+        donut: {
+          size: "65%",
+          labels: {
+            show: true,
+            name: {
+              show: true,
+              fontSize: "10px",
+              fontWeight: 700,
+              color: "#94a3b8",
+              offsetY: -5
+            },
+            value: {
+              show: true,
+              fontSize: "13px",
+              fontWeight: 900,
+              color: "#1e293b",
+              offsetY: 5,
+              formatter: (val) => "R$ " + parseFloat(val).toLocaleString("pt-BR", { maximumFractionDigits: 0 })
+            },
+            total: {
+              show: true,
+              label: "Ações",
+              color: "#94a3b8",
+              formatter: () => "R$ " + valorAcoes.toLocaleString("pt-BR", { maximumFractionDigits: 0 })
+            }
+          }
+        }
+      }
+    },
+    dataLabels: { enabled: false },
+    tooltip: {
+      y: {
+        formatter: (val) => "R$ " + val.toLocaleString("pt-BR", { minimumFractionDigits: 2 })
+      }
+    }
+  };
 
   if (loading) {
     return (
@@ -284,33 +327,14 @@ export default function Carteira({ user, onUpdateUser }) {
               Nenhuma ação comprada ainda.
             </p>
           ) : (
-            <div className="flex flex-col items-center gap-6">
-              {/* Gráfico circular puro em CSS */}
-              <div
-                className="w-36 h-36 rounded-full relative shadow-inner flex items-center justify-center"
-                style={pieStyles}
-              >
-                {/* Miolo do Donut */}
-                <div className="w-24 h-24 rounded-full bg-white flex flex-col items-center justify-center">
-                  <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider">Ações</span>
-                  <span className="text-xs font-black text-slate-800">
-                    R$ {valorAcoes.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
-                  </span>
-                </div>
-              </div>
-
-              {/* Legenda */}
-              <div className="w-full grid grid-cols-2 gap-2 text-[10px] font-bold">
-                {holdings.map((h, i) => (
-                  <div key={h.stockCode} className="flex items-center gap-2 text-slate-600 truncate">
-                    <span
-                      className="w-2.5 h-2.5 rounded-full shrink-0"
-                      style={{ backgroundColor: COLORS[i % COLORS.length] }}
-                    />
-                    <span className="truncate">{h.stockCode}</span>
-                  </div>
-                ))}
-              </div>
+            <div className="flex flex-col items-center justify-center min-h-[220px]">
+              <ReactApexChart
+                options={optionsPie}
+                series={seriesPie}
+                type="donut"
+                width="100%"
+                height={260}
+              />
             </div>
           )}
         </div>

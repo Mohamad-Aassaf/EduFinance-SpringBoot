@@ -1,6 +1,35 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Calculator, DollarSign, TrendingUp, Calendar } from "lucide-react";
 import { api } from "../api";
+import ReactApexChart from "react-apexcharts";
+
+// ─── Gera as séries mês a mês para o gráfico de área ─────────────────────────
+function calcularSeriesProjecao({ valorInicial, aporteMensal, taxaAnual, tempoMeses }) {
+  const taxaMensal = taxaAnual / 12.0 / 100.0;
+  const serieInvestido = [];
+  const serieTotal = [];
+  const categorias = [];
+
+  for (let mes = 0; mes <= tempoMeses; mes++) {
+    const totalInvestido = valorInicial + aporteMensal * mes;
+
+    let totalComJuros;
+    if (taxaMensal === 0) {
+      totalComJuros = totalInvestido;
+    } else {
+      const montanteInicial = valorInicial * Math.pow(1 + taxaMensal, mes);
+      const montanteAportes =
+        mes === 0 ? 0 : aporteMensal * ((Math.pow(1 + taxaMensal, mes) - 1) / taxaMensal);
+      totalComJuros = montanteInicial + montanteAportes;
+    }
+
+    serieInvestido.push(parseFloat(totalInvestido.toFixed(2)));
+    serieTotal.push(parseFloat(totalComJuros.toFixed(2)));
+    categorias.push(`Mês ${mes}`);
+  }
+
+  return { serieInvestido, serieTotal, categorias };
+}
 
 export default function Simulador({ user, onUpdateUser }) {
   const [tipoInvestimento, setTipoInvestimento] = useState("Poupança");
@@ -53,9 +82,87 @@ export default function Simulador({ user, onUpdateUser }) {
   };
 
   const totalInvestido = resultado
-    ? resultado.valorInicial + (resultado.aporteMensal * resultado.tempoMeses)
+    ? resultado.valorInicial + resultado.aporteMensal * resultado.tempoMeses
     : 0;
   const jurosRendidos = resultado ? resultado.valorFinal - totalInvestido : 0;
+
+  // ─── Dados do gráfico ApexCharts ────────────────────────────────────────────
+  const chartData = useMemo(() => {
+    if (!resultado) return null;
+    return calcularSeriesProjecao({
+      valorInicial: resultado.valorInicial,
+      aporteMensal: resultado.aporteMensal,
+      taxaAnual: resultado.taxaAnual,
+      tempoMeses: resultado.tempoMeses,
+    });
+  }, [resultado]);
+
+  const chartSeries = chartData
+    ? [
+        { name: "Total Investido", data: chartData.serieInvestido },
+        { name: "Com Juros Compostos", data: chartData.serieTotal },
+      ]
+    : [];
+
+  const chartOptions = {
+    chart: {
+      type: "area",
+      height: 280,
+      toolbar: { show: false },
+      zoom: { enabled: false },
+      animations: { enabled: true, speed: 600 },
+      background: "transparent",
+    },
+    dataLabels: { enabled: false },
+    stroke: { curve: "smooth", width: [2, 2.5] },
+    fill: {
+      type: "gradient",
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.45,
+        opacityTo: 0.02,
+        stops: [0, 90, 100],
+      },
+    },
+    colors: ["#94a3b8", "#2563EB"],
+    xaxis: {
+      categories: chartData?.categorias || [],
+      tickAmount: Math.min(resultado?.tempoMeses || 12, 12),
+      labels: {
+        style: { fontSize: "10px", colors: "#94a3b8", fontWeight: 600 },
+        rotate: 0,
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+    },
+    yaxis: {
+      labels: {
+        formatter: (val) =>
+          "R$ " + val.toLocaleString("pt-BR", { maximumFractionDigits: 0 }),
+        style: { fontSize: "10px", colors: "#94a3b8", fontWeight: 600 },
+      },
+    },
+    tooltip: {
+      y: {
+        formatter: (val) =>
+          "R$ " + val.toLocaleString("pt-BR", { minimumFractionDigits: 2 }),
+      },
+      theme: "light",
+    },
+    legend: {
+      position: "top",
+      horizontalAlign: "right",
+      fontSize: "11px",
+      fontWeight: 700,
+      labels: { colors: "#475569" },
+      markers: { size: 5 },
+    },
+    grid: {
+      borderColor: "#f1f5f9",
+      strokeDashArray: 4,
+      xaxis: { lines: { show: false } },
+    },
+  };
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-6 animate-fade-in">
@@ -170,9 +277,10 @@ export default function Simulador({ user, onUpdateUser }) {
         {/* Resultados e Histórico */}
         <div className="lg:col-span-2 space-y-6">
           {resultado ? (
-            <div className="bg-white p-6 rounded-sm shadow-sm border border-slate-100 space-y-4">
+            <div className="bg-white p-6 rounded-sm shadow-sm border border-slate-100 space-y-5">
               <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">Resultado da Projeção</h3>
 
+              {/* Cards de resumo */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-slate-50 p-4 rounded-sm">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Valor Final Bruto</p>
@@ -194,35 +302,22 @@ export default function Simulador({ user, onUpdateUser }) {
                 </div>
               </div>
 
-              {/* Gráfico comparativo visual em CSS pura */}
-              <div className="space-y-3 pt-2">
-                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Distribuição dos Valores</h4>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs font-bold text-slate-655">
-                    <span>Total Investido</span>
-                    <span>{Math.round((totalInvestido / resultado.valorFinal) * 100)}%</span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden">
-                    <div
-                      className="bg-slate-400 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${(totalInvestido / resultado.valorFinal) * 100}%` }}
-                    />
-                  </div>
+              {/* ── Gráfico de Área ApexCharts ── */}
+              <div>
+                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">
+                  Evolução Patrimonial — Mês a Mês
+                </h4>
+                <div className="rounded-sm overflow-hidden">
+                  <ReactApexChart
+                    options={chartOptions}
+                    series={chartSeries}
+                    type="area"
+                    height={280}
+                  />
                 </div>
-
-                <div className="space-y-1">
-                  <div className="flex justify-between text-xs font-bold text-emerald-600">
-                    <span>Rendimento (Juros Compostos)</span>
-                    <span>{Math.round((jurosRendidos / resultado.valorFinal) * 100)}%</span>
-                  </div>
-                  <div className="w-full bg-slate-100 h-4 rounded-full overflow-hidden">
-                    <div
-                      className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                      style={{ width: `${(jurosRendidos / resultado.valorFinal) * 100}%` }}
-                    />
-                  </div>
-                </div>
+                <p className="text-[10px] text-slate-400 mt-1 text-center italic">
+                  Cinza = total aportado · Azul = valor com juros compostos acumulados
+                </p>
               </div>
             </div>
           ) : (

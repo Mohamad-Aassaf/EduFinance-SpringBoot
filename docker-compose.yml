@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: edufinance
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: root
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      # Scripts executados apenas na primeira inicialização (volume vazio)
+      - ./eduFinance.sql:/docker-entrypoint-initdb.d/01-eduFinance.sql:ro
+      - ./docker/db/02-reset-sequences.sql:/docker-entrypoint-initdb.d/02-reset-sequences.sql:ro
+    ports:
+      # 5433 no host para não conflitar com um PostgreSQL já instalado na máquina
+      - "5433:5432"
+    healthcheck:
+      # -h 127.0.0.1: só fica saudável depois que os scripts de init terminam
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d edufinance"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: .
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/edufinance
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: root
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8080
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  db_data:
