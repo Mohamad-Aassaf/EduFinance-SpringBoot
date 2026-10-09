@@ -175,6 +175,31 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+
+  // ── Convite de grupo pelo link (?convite=CODIGO) ───────────────
+  /*
+   * O código sai da URL e fica na sessão do navegador, para sobreviver
+   * ao login de quem abriu o link sem estar autenticado.
+   */
+  const [convite, setConvite] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const codigo = params.get("convite");
+    if (codigo) {
+      sessionStorage.setItem("edufinance-convite", codigo);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+    return codigo || sessionStorage.getItem("edufinance-convite");
+  });
+
+  const handleConviteUsado = () => {
+    sessionStorage.removeItem("edufinance-convite");
+    setConvite(null);
+  };
+
+  // Com convite pendente, a primeira tela depois de entrar é o Ranking
+  useEffect(() => {
+    if (user && convite) setActiveTab("ranking");
+  }, [user, convite]);
   const [showAdminAiModal, setShowAdminAiModal] = useState(false);
   const [aiConfig, setAiConfig] = useState(null);
 
@@ -258,7 +283,7 @@ export default function App() {
     verificarAutenticacao();
   }, []);
 
-  const handleLoginSuccess = (perfil) => { setUser(perfil); setActiveTab("dashboard"); };
+  const handleLoginSuccess = (perfil) => { setUser(perfil); setActiveTab(convite ? "ranking" : "dashboard"); };
   const handleLogout = () => { localStorage.removeItem("token"); localStorage.removeItem("user"); setUser(null); };
   const handleUpdateUser = (updatedUser) => setUser(updatedUser);
   const toggleDarkMode = () => setDarkMode((prev) => !prev);
@@ -366,7 +391,14 @@ export default function App() {
                 {activeTab === "simulador" && <Simulador user={user} onUpdateUser={handleUpdateUser} />}
                 {activeTab === "mercado" && <Mercado user={user} onUpdateUser={handleUpdateUser} />}
                 {activeTab === "carteira" && <Carteira user={user} onUpdateUser={handleUpdateUser} />}
-                {activeTab === "ranking" && <Ranking user={user} />}
+                {activeTab === "ranking" && (
+                  <Ranking
+                    user={user}
+                    onUpdateUser={handleUpdateUser}
+                    convite={convite}
+                    onConviteUsado={handleConviteUsado}
+                  />
+                )}
                 {activeTab === "perfil" && (
                   /* Passamos paletteId e setPaletteId para o Perfil */
                   <Perfil

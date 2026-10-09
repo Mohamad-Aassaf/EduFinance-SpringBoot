@@ -4,6 +4,10 @@ import com.edufinance.backend.model.Perfil;
 import com.edufinance.backend.model.Medalha;
 import com.edufinance.backend.repository.PerfilRepository;
 import com.edufinance.backend.repository.MedalhaRepository;
+import com.edufinance.backend.dto.RankingDtos.DadosLocalizacao;
+import com.edufinance.backend.service.RegraNegocioException;
+import com.edufinance.backend.service.UsuarioAtualService;
+import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,6 +28,9 @@ public class PerfilController {
 
     @Autowired
     private MedalhaRepository medalhaRepository;
+
+    @Autowired
+    private UsuarioAtualService usuarioAtual;
 
     // Retorna as medalhas conquistadas por um usuário
     @GetMapping("/{id}/medalhas")
@@ -89,6 +96,53 @@ public class PerfilController {
         } else {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    /*
+     * Atualiza a localização do usuário logado, usada nos rankings regionais.
+     * O perfil vem do token, então ninguém altera a localização de outra pessoa.
+     * Campos em branco apagam a informação; cidade exige estado e estado exige país.
+     */
+    @PutMapping("/me/localizacao")
+    public ResponseEntity<Perfil> updateLocalizacao(@RequestBody DadosLocalizacao dados) {
+        Perfil perfil = usuarioAtual.exigir();
+
+        String pais = limpar(dados.pais());
+        String estado = limpar(dados.estado());
+        String cidade = limpar(dados.cidade());
+
+        if (pais != null) {
+            pais = pais.toUpperCase(java.util.Locale.ROOT);
+            if (!pais.matches("[A-Z]{2}")) {
+                throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "País inválido: use o código de duas letras (ex.: BR).");
+            }
+        }
+        if (estado != null && pais == null) {
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "Informe o país antes do estado.");
+        }
+        if (cidade != null && estado == null) {
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "Informe o estado antes da cidade.");
+        }
+        if (estado != null && estado.length() > 60) {
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "O estado deve ter no máximo 60 caracteres.");
+        }
+        if (cidade != null && cidade.length() > 80) {
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "A cidade deve ter no máximo 80 caracteres.");
+        }
+
+        perfil.setPais(pais);
+        perfil.setEstado(estado);
+        perfil.setCidade(cidade);
+        return ResponseEntity.ok(perfilRepository.save(perfil));
+    }
+
+    // Tira espaços das pontas e colapsa os internos; texto vazio vira null
+    private static String limpar(String texto) {
+        if (texto == null) {
+            return null;
+        }
+        String limpo = texto.replaceAll("\\p{Cntrl}", " ").replaceAll("\\s+", " ").trim();
+        return limpo.isEmpty() ? null : limpo;
     }
 
     // Atualiza o saldo virtual do usuário

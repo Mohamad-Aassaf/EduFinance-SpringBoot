@@ -30,7 +30,7 @@ export default function Dashboard({ user, onTabChange }) {
   const [progress, setProgress] = useState([]);
   const [medals, setMedals] = useState([]);
   const [simulations, setSimulations] = useState([]);
-  const [ranking, setRanking] = useState([]);
+  const [ranking, setRanking] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Carrega todos os dados do painel em paralelo
@@ -42,13 +42,13 @@ export default function Dashboard({ user, onTabChange }) {
           api.get(`/api/licoes/usuario/${user.id}/progresso`),
           api.get(`/api/perfis/${user.id}/medalhas`),
           api.get(`/api/simulacoes/usuario/${user.id}`),
-          api.get("/api/perfis/ranking"),
+          api.get("/api/rankings?tamanho=4"),
         ]);
         setLessons(licoes);
         setProgress(progressos);
         setMedals(medalhas);
         setSimulations(sims);
-        setRanking(rank);
+        setRanking(rank.ranking);
       } catch (err) {
         console.error("Erro ao carregar dados do painel:", err);
       } finally {
@@ -76,8 +76,9 @@ export default function Dashboard({ user, onTabChange }) {
     if (concluidas.has(licao.id)) modulo.feitas += 1;
   }
 
-  // Posição do usuário no ranking geral (por XP)
-  const minhaPosicao = ranking.findIndex((p) => p.id === user.id) + 1;
+  // Posição do usuário no ranking global (por XP), calculada no backend
+  const minhaPosicao = ranking?.minhaPosicao || 0;
+  const totalRanking = ranking?.totalParticipantes || 0;
 
   // Mapeamento de tipos de medalha para label e emoji
   const badgeLabels = {
@@ -170,7 +171,7 @@ export default function Dashboard({ user, onTabChange }) {
         actions={<IconButton icon={ArrowRight} label="Abrir o Ranking" onClick={() => onTabChange("ranking")} />}
         data-finbot-context="Prévia do Ranking: mostra os usuários com mais XP na plataforma e a sua posição entre eles."
       >
-        {ranking.length === 0 ? (
+        {!ranking || ranking.itens.length === 0 ? (
           <EmptyState icon={Trophy} title="Ranking indisponível" text="Não foi possível carregar a classificação agora." />
         ) : (
           <div className="flex flex-col sm:flex-row gap-5 h-full">
@@ -182,14 +183,14 @@ export default function Dashboard({ user, onTabChange }) {
               </p>
               <p className="text-sm font-bold mt-2">Sua posição</p>
               <p className="text-xs text-white/60 font-medium mt-0.5">
-                entre {ranking.length} {ranking.length === 1 ? "usuário" : "usuários"}
+                entre {totalRanking} {totalRanking === 1 ? "usuário" : "usuários"}
               </p>
             </div>
 
             <div className="flex-1 min-w-0">
-              {ranking.slice(0, 4).map((p, i) => (
+              {ranking.itens.map((p) => (
                 <div key={p.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 border-b border-slate-100 last:border-0">
-                  <span className="w-6 text-sm font-black text-slate-400 shrink-0">{i + 1}º</span>
+                  <span className="w-6 text-sm font-black text-slate-400 shrink-0">{p.posicao}º</span>
                   <Avatar nome={p.nome} avatarUrl={p.avatarUrl} className="w-8 h-8 text-xs" />
                   <span className={`flex-1 truncate text-sm ${p.id === user.id ? "font-extrabold text-slate-800" : "font-semibold text-slate-700"}`}>
                     {p.nome}{p.id === user.id && " (você)"}
