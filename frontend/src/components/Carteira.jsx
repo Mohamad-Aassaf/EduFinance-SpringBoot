@@ -191,11 +191,7 @@ export default function Carteira({ user, onUpdateUser }) {
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6 animate-[fadeIn_0.3s_ease-out]">
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-800">Minha Carteira</h1>
-        <p className="text-sm text-slate-500 mt-1">Gerencie seus investimentos simulados.</p>
-      </div>
+    <div className="px-4 md:px-8 pt-2 pb-8 space-y-6 animate-[fadeIn_0.3s_ease-out]">
 
       {/* Grid de Cards de Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

@@ -32,6 +32,7 @@ import FinBotInspector from "./components/FinBotInspector";
 import AdminAiHostModal from "./components/AdminAiHostModal";
 import { api } from "./api";
 import { Flame, Moon, Sun, Menu, Server } from "lucide-react";
+import { IconButton } from "./components/ui";
 
 // ─── DEFINIÇÃO DAS PALETAS ────────────────────────────────────────────────────
 /*
@@ -135,6 +136,40 @@ function aplicarPaleta(paleta) {
   html.style.setProperty("--color-text-on-primary", paleta.textOnPrimary);
 }
 
+// ─── TÍTULOS DAS PÁGINAS ──────────────────────────────────────────────────────
+/*
+ * O título e o subtítulo de cada aba ficam no cabeçalho compartilhado,
+ * então as páginas não repetem o próprio <h1>.
+ */
+const PAGE_META = {
+  dashboard: { title: "Dashboard", subtitle: (user) => `Olá, ${user.nome}! Continue sua jornada de educação financeira.` },
+  trilha: { title: "Trilha de Aprendizado", subtitle: () => "Conclua as lições e avance na jornada." },
+  finbot: { title: "Professor FinBot", subtitle: () => "Seu assistente de finanças pessoal." },
+  simulador: { title: "Simulador", subtitle: () => "Faça projeções de juros compostos e compare diferentes modalidades." },
+  mercado: { title: "Mercado", subtitle: () => "Explore ações e invista com seu saldo virtual." },
+  carteira: { title: "Minha Carteira", subtitle: () => "Gerencie seus investimentos simulados." },
+  ranking: { title: "Ranking", subtitle: () => "Acompanhe o progresso dos seus colegas e dispute o topo do ranking." },
+  perfil: { title: "Perfil", subtitle: () => "Seus dados, conquistas e personalização." },
+  historico: { title: "Histórico", subtitle: () => "Registro de operações de mercado e conversas com o Professor FinBot." },
+};
+
+// Indicador grande do cabeçalho: número em destaque, etiqueta ao lado e legenda embaixo
+function HeaderStat({ value, pill, label, context }) {
+  return (
+    <div className="text-right" data-finbot-context={context}>
+      <div className="flex items-center justify-end gap-2">
+        <span className="text-2xl lg:text-3xl font-black text-slate-800 leading-none tracking-tight">{value}</span>
+        {pill && (
+          <span className="text-[10px] font-extrabold px-2 py-1 rounded-full bg-white border border-slate-200 text-slate-600 shadow-sm whitespace-nowrap">
+            {pill}
+          </span>
+        )}
+      </div>
+      <p className="text-xs font-semibold text-slate-400 mt-1.5">{label}</p>
+    </div>
+  );
+}
+
 // ─── COMPONENTE PRINCIPAL ─────────────────────────────────────────────────────
 export default function App() {
   const [user, setUser] = useState(null);
@@ -154,6 +189,22 @@ export default function App() {
     }
     loadAiConfig();
   }, []);
+
+  // ── Menu lateral ───────────────────────────────────────────────
+  // Desktop: alterna entre trilho de ícones e menu com rótulos. Mobile: abre a gaveta.
+  const [sidebarExpanded, setSidebarExpanded] = useState(() => {
+    return localStorage.getItem("edufinance-sidebar") === "expanded";
+  });
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
+
+  useEffect(() => {
+    localStorage.setItem("edufinance-sidebar", sidebarExpanded ? "expanded" : "collapsed");
+  }, [sidebarExpanded]);
+
+  const toggleSidebar = () => {
+    if (window.matchMedia("(min-width: 768px)").matches) setSidebarExpanded((v) => !v);
+    else setSidebarMobileOpen((v) => !v);
+  };
 
   // ── Dark Mode ──────────────────────────────────────────────────
   const [darkMode, setDarkMode] = useState(() => {
@@ -222,6 +273,8 @@ export default function App() {
     );
   }
 
+  const page = PAGE_META[activeTab] || PAGE_META.dashboard;
+
   return (
     <>
       {user ? (
@@ -232,46 +285,70 @@ export default function App() {
             activeTab={activeTab}
             setActiveTab={setActiveTab}
             onLogout={handleLogout}
+            expanded={sidebarExpanded}
+            mobileOpen={sidebarMobileOpen}
+            onCloseMobile={() => setSidebarMobileOpen(false)}
           />
 
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            {/* Cabeçalho */}
-            <header className="bg-white dark:bg-[#111d2e] border-b border-slate-100 dark:border-slate-700/30 py-4 px-8 flex justify-between items-center shrink-0">
-              <button className="text-slate-400 hover:text-slate-600 transition focus:outline-none">
-                <Menu className="w-5 h-5" />
-              </button>
-              <div className="flex items-center gap-4">
-                <div
-                  data-finbot-context="Ofensiva de dias: mostra quantos dias seguidos você usa a plataforma EduFinance. Manter uma ofensiva diária te ajuda a criar o hábito de estudar finanças e pode desbloquear conquistas especiais."
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-black border shadow-sm select-none cursor-default"
-                  style={{
-                    background: "color-mix(in srgb, var(--color-accent) 15%, transparent)",
-                    color: "var(--color-accent)",
-                    borderColor: "color-mix(in srgb, var(--color-accent) 30%, transparent)",
-                  }}
-                >
-                  <Flame className="w-4 h-4" style={{ fill: "var(--color-accent)", color: "var(--color-accent)" }} />
-                  <span>1</span>
+            {/* Cabeçalho: título da página à esquerda, indicadores e ações à direita */}
+            <header className="shrink-0 w-full max-w-[1440px] mx-auto px-4 md:px-8 pt-5 pb-4 flex flex-wrap items-start justify-between gap-x-8 gap-y-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <IconButton icon={Menu} label="Abrir ou recolher o menu" onClick={toggleSidebar} className="mt-1" />
+                <div className="min-w-0">
+                  <h1 className="text-3xl lg:text-4xl font-extrabold text-slate-800 tracking-tight truncate">
+                    {page.title}
+                  </h1>
+                  <p className="text-sm text-slate-500 mt-1">{page.subtitle(user)}</p>
                 </div>
-                <button
-                  onClick={() => setShowAdminAiModal(true)}
-                  title="Configuração Admin do Servidor da IA (PC vs Notebook)"
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 transition"
-                >
-                  <Server className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>IA: {aiConfig?.activeHostMode === "pc" ? "PC" : aiConfig?.activeHostMode === "notebook" ? "Notebook" : "Custom"}</span>
-                  <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-amber-200 text-amber-900 rounded">
-                    ADMIN
-                  </span>
-                </button>
+              </div>
 
-                <button
-                  onClick={toggleDarkMode}
-                  title={darkMode ? "Modo claro" : "Modo escuro"}
-                  className="text-slate-400 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-100 transition focus:outline-none p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700/50"
-                >
-                  {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                </button>
+              <div className="flex items-start gap-6 lg:gap-10 ml-auto">
+                <div className="hidden sm:flex items-start gap-6 lg:gap-10">
+                  <HeaderStat
+                    value={user.xp.toLocaleString("pt-BR")}
+                    pill={`Nível ${user.nivel}`}
+                    label="XP total"
+                    context={`XP (Pontos de Experiência) do usuário: ${user.xp} XP, nível ${user.nivel}. Você ganha XP ao concluir aulas, responder perguntas corretamente e fazer simulações. Acumule 100 XP para subir de nível!`}
+                  />
+                  <HeaderStat
+                    value={`R$ ${user.saldoVirtual.toLocaleString("pt-BR", { notation: "compact", maximumFractionDigits: 1 })}`}
+                    label="Saldo virtual"
+                    context={`Saldo virtual do usuário: R$ ${user.saldoVirtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}. É o dinheiro fictício usado para comprar ações no Mercado e fazer simulações.`}
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div
+                    data-finbot-context="Ofensiva de dias: mostra quantos dias seguidos você usa a plataforma EduFinance. Manter uma ofensiva diária te ajuda a criar o hábito de estudar finanças e pode desbloquear conquistas especiais."
+                    className="flex items-center gap-1.5 px-3 h-9 rounded-full text-sm font-black border shadow-sm select-none cursor-default"
+                    style={{
+                      background: "color-mix(in srgb, var(--color-accent) 15%, transparent)",
+                      color: "var(--color-accent)",
+                      borderColor: "color-mix(in srgb, var(--color-accent) 30%, transparent)",
+                    }}
+                  >
+                    <Flame className="w-4 h-4" style={{ fill: "var(--color-accent)", color: "var(--color-accent)" }} />
+                    <span>1</span>
+                  </div>
+                  <button
+                    onClick={() => setShowAdminAiModal(true)}
+                    title="Configuração Admin do Servidor da IA (PC vs Notebook)"
+                    className="flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 transition"
+                  >
+                    <Server className="w-3.5 h-3.5 text-indigo-500" />
+                    <span className="hidden lg:inline">IA: {aiConfig?.activeHostMode === "pc" ? "PC" : aiConfig?.activeHostMode === "notebook" ? "Notebook" : "Custom"}</span>
+                    <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-amber-200 text-amber-900 rounded">
+                      ADMIN
+                    </span>
+                  </button>
+
+                  <IconButton
+                    icon={darkMode ? Sun : Moon}
+                    label={darkMode ? "Modo claro" : "Modo escuro"}
+                    onClick={toggleDarkMode}
+                  />
+                </div>
               </div>
             </header>
 
@@ -280,26 +357,28 @@ export default function App() {
               className={`flex-1 min-h-0 ${activeTab === "finbot" ? "overflow-hidden flex flex-col" : "overflow-y-auto"}`}
               style={{ background: "var(--color-bg)" }}
             >
-              {activeTab === "dashboard" && <Dashboard user={user} onTabChange={setActiveTab} />}
-              {activeTab === "trilha" && <Trilha user={user} onUpdateUser={handleUpdateUser} />}
-              {activeTab === "finbot" && (
-                <div className="flex-1 min-h-0 flex flex-col"><FinBot /></div>
-              )}
-              {activeTab === "simulador" && <Simulador user={user} onUpdateUser={handleUpdateUser} />}
-              {activeTab === "mercado" && <Mercado user={user} onUpdateUser={handleUpdateUser} />}
-              {activeTab === "carteira" && <Carteira user={user} onUpdateUser={handleUpdateUser} />}
-              {activeTab === "ranking" && <Ranking user={user} />}
-              {activeTab === "perfil" && (
-                /* Passamos paletteId e setPaletteId para o Perfil */
-                <Perfil
-                  user={user}
-                  onUpdateUser={handleUpdateUser}
-                  paletteId={paletteId}
-                  onPaletteChange={setPaletteId}
-                  palettes={PALETTES}
-                />
-              )}
-              {activeTab === "historico" && <Historico user={user} />}
+              <div className={`w-full max-w-[1440px] mx-auto ${activeTab === "finbot" ? "flex-1 min-h-0 flex flex-col" : ""}`}>
+                {activeTab === "dashboard" && <Dashboard user={user} onTabChange={setActiveTab} />}
+                {activeTab === "trilha" && <Trilha user={user} onUpdateUser={handleUpdateUser} />}
+                {activeTab === "finbot" && (
+                  <div className="flex-1 min-h-0 flex flex-col"><FinBot /></div>
+                )}
+                {activeTab === "simulador" && <Simulador user={user} onUpdateUser={handleUpdateUser} />}
+                {activeTab === "mercado" && <Mercado user={user} onUpdateUser={handleUpdateUser} />}
+                {activeTab === "carteira" && <Carteira user={user} onUpdateUser={handleUpdateUser} />}
+                {activeTab === "ranking" && <Ranking user={user} />}
+                {activeTab === "perfil" && (
+                  /* Passamos paletteId e setPaletteId para o Perfil */
+                  <Perfil
+                    user={user}
+                    onUpdateUser={handleUpdateUser}
+                    paletteId={paletteId}
+                    onPaletteChange={setPaletteId}
+                    palettes={PALETTES}
+                  />
+                )}
+                {activeTab === "historico" && <Historico user={user} />}
+              </div>
             </main>
           </div>
 

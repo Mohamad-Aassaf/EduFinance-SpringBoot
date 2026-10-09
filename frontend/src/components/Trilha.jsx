@@ -74,13 +74,9 @@ export default function Trilha({ user, onUpdateUser }) {
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-8 animate-[fadeIn_0.3s_ease-out]">
+    <div className="px-4 md:px-8 pt-2 pb-8 max-w-3xl mx-auto space-y-8 animate-[fadeIn_0.3s_ease-out]">
       {/* Header com Status do Usuário */}
-      <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-100 pb-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-800">Trilha de Aprendizado</h1>
-          <p className="text-sm text-slate-500 mt-1">Conclua as lições e avance na jornada.</p>
-        </div>
+      <div className="flex items-center justify-center flex-wrap gap-4 border-b border-slate-100 pb-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 bg-white border border-slate-100 rounded-full px-4 py-2 shadow-sm text-sm font-bold text-slate-700">
             <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />

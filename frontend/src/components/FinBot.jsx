@@ -319,12 +319,12 @@ export default function FinBot() {
               <MessageSquare className="w-4 h-4" />
             </button>
             <div>
-              <h1 className="text-lg font-extrabold text-slate-800 flex items-center gap-2">
-                <Bot className="w-5 h-5 text-indigo-500" />
-                Professor FinBot
-              </h1>
+              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <Bot className="w-4 h-4 text-indigo-500" />
+                Conversa
+              </h2>
               <p className="text-xs text-slate-400 font-medium">
-                Seu assistente de finanças pessoal. Pergunte qualquer coisa sobre investimentos!
+                Pergunte qualquer coisa sobre investimentos!
               </p>
             </div>
           </div>
