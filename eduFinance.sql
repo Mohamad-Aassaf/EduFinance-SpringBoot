@@ -69,7 +69,8 @@ VALUES
 (2,2,'Como funcionam os juros compostos em investimentos de longo prazo?','Os juros incidem apenas sobre o capital inicial depositado.','Os juros diminuem a rentabilidade do investimento conforme o tempo passa.','Os juros acumulam ao saldo principal, gerando novos juros.','Eles são idênticos aos juros simples.',3,'O efeito é conhecido como bola de neve.','2026-06-15 22:34:20.873632'),
 (3,3,'De acordo com a regra 50-30-20, como deve ser distribuído o orçamento mensal?','50% Desejos, 30% Necessidades, 20% Poupança.','50% Necessidades, 30% Poupança, 20% Desejos.','50% Necessidades, 30% Desejos, 20% Poupança/Investimentos.','50% Poupança, 30% Necessidades, 20% Desejos.',3,'A distribuição correta é 50-30-20.','2026-06-15 22:34:20.882189'),
 (4,4,'Qual a principal característica da reserva de emergência?','Alta oscilação diária.','Baixo risco e alta liquidez.','Prazo longo de carência.','Ser composta apenas por ações.',2,'A reserva deve estar disponível rapidamente.','2026-06-15 22:34:20.889539'),
-(5,5,'Qual é o principal diferença entre Renda Fixa e Renda Variável?','Renda Fixa é sempre isenta de impostos.','Renda Fixa oferece previsibilidade enquanto a Variável oscila conforme o mercado.','Renda Variável é recomendada para reserva de emergência.','Renda Fixa nunca rende juros compostos.',2,'A principal diferença é o risco e previsibilidade.','2026-06-15 22:34:20.897737');
+(5,5,'Qual é o principal diferença entre Renda Fixa e Renda Variável?','Renda Fixa é sempre isenta de impostos.','Renda Fixa oferece previsibilidade enquanto a Variável oscila conforme o mercado.','Renda Variável é recomendada para reserva de emergência.','Renda Fixa nunca rende juros compostos.',2,'A principal diferença é o risco e previsibilidade.','2026-06-15 22:34:20.897737'),
+(6,6 '');
 
 
 CREATE TABLE IF NOT EXISTS medalhas (

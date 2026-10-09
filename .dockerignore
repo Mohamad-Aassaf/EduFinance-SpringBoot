@@ -1,0 +1,9 @@
+.git
+.vscode
+target
+frontend
+node_modules
+AULA-lp3
+TESTE_BLOCK
+TESTE_IA
+*.md
