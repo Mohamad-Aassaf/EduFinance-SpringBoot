@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Calculator, DollarSign, TrendingUp, Calendar } from "lucide-react";
+import { DollarSign, TrendingUp, Calendar } from "lucide-react";
 import { api } from "../api";
 import ReactApexChart from "react-apexcharts";
 
@@ -165,16 +165,7 @@ export default function Simulador({ user, onUpdateUser }) {
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2">
-          <Calculator className="w-8 h-8" style={{ color: "#2563EB" }} />
-          Simulador de Investimentos
-        </h1>
-        <p className="text-slate-500 mt-1">
-          Faça projeções de juros compostos e compare diferentes modalidades.
-        </p>
-      </div>
+    <div className="px-4 md:px-8 pt-2 pb-8 space-y-6 animate-fade-in">
 
       {error && (
         <div className="bg-red-50 text-red-700 p-3 rounded-sm border border-red-150 text-center font-bold text-xs">

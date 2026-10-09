@@ -210,7 +210,7 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
   }
 
   return (
-    <div className="p-8 max-w-3xl mx-auto space-y-6 animate-fade-in">
+    <div className="px-4 md:px-8 pt-2 pb-8 max-w-3xl mx-auto space-y-6 animate-fade-in">
 
       {/* ── Hero Card ── */}
       <div className="bg-white rounded-sm border border-slate-100 shadow-sm p-6 relative overflow-hidden flex flex-col sm:flex-row items-center gap-6">

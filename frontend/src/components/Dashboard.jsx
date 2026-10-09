@@ -1,45 +1,54 @@
 /**
  * Dashboard.jsx — Painel principal do usuário
  *
- * Exibe um resumo geral:
- * - Saudação personalizada
- * - Cards de estatísticas (Nível, XP, Progresso, Badges)
- * - Barra de progresso da trilha
- * - Botões de ação rápida
- * - Conquistas (medalhas)
- * - Últimas simulações
+ * Organizado em uma grade de cartões (2 colunas no desktop, 1 no mobile):
+ * - Progresso na Trilha: medidor em arco + andamento por módulo
+ * - Ranking: os primeiros colocados e a posição do usuário
+ * - Detalhes: aulas, simulações e conquistas (badges)
+ * - Últimas Simulações
+ *
+ * O título da página e os indicadores de XP/saldo ficam no cabeçalho do App.
  *
  * Paleta de cores:
- * - Azul (#2563EB): botões principais e elementos de aprendizado
- * - Laranja (#F97316): XP, conquistas e gamificação
- * - Verde: progresso concluído
+ * - primary: progresso e elementos de aprendizado
+ * - accent:  XP, conquistas e gamificação
  */
 
-import { Trophy, Zap, BookOpen, Award, Calculator, TrendingUp } from "lucide-react";
+import { Trophy, BookOpen, Calculator, TrendingUp, ArrowRight, Award, Plus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { api } from "../api";
+import { Card, IconButton, Avatar, EmptyState } from "./ui";
+
+// Cores dos módulos na legenda do medidor (seguem a paleta ativa)
+const CORES_MODULO = ["var(--color-primary)", "var(--color-accent)", "#10b981", "#94a3b8"];
+
+// Comprimento do arco do medidor (semicírculo de raio 80)
+const ARCO = Math.PI * 80;
 
 export default function Dashboard({ user, onTabChange }) {
   const [lessons, setLessons] = useState([]);
   const [progress, setProgress] = useState([]);
   const [medals, setMedals] = useState([]);
   const [simulations, setSimulations] = useState([]);
+  const [ranking, setRanking] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Carrega todos os dados do painel em paralelo
   useEffect(() => {
     async function carregarDados() {
       try {
-        const [licoes, progressos, medalhas, sims] = await Promise.all([
+        const [licoes, progressos, medalhas, sims, rank] = await Promise.all([
           api.get("/api/licoes"),
           api.get(`/api/licoes/usuario/${user.id}/progresso`),
           api.get(`/api/perfis/${user.id}/medalhas`),
           api.get(`/api/simulacoes/usuario/${user.id}`),
+          api.get("/api/perfis/ranking"),
         ]);
         setLessons(licoes);
         setProgress(progressos);
         setMedals(medalhas);
         setSimulations(sims);
+        setRanking(rank);
       } catch (err) {
         console.error("Erro ao carregar dados do painel:", err);
       } finally {
@@ -50,9 +59,25 @@ export default function Dashboard({ user, onTabChange }) {
   }, [user.id]);
 
   // Calcula o percentual de progresso na trilha
-  const totalLessons = lessons.length || 5;
-  const completedLessons = progress.filter((p) => p.concluido).length;
-  const progressPercent = Math.round((completedLessons / totalLessons) * 100) || 0;
+  const totalLessons = lessons.length;
+  const concluidas = new Set(progress.filter((p) => p.concluido).map((p) => p.licaoId));
+  const completedLessons = lessons.filter((l) => concluidas.has(l.id)).length;
+  const progressPercent = totalLessons ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
+  // Andamento por módulo, na ordem em que os módulos aparecem na trilha
+  const modulos = [];
+  for (const licao of lessons) {
+    let modulo = modulos.find((m) => m.nome === licao.modulo);
+    if (!modulo) {
+      modulo = { nome: licao.modulo, total: 0, feitas: 0 };
+      modulos.push(modulo);
+    }
+    modulo.total += 1;
+    if (concluidas.has(licao.id)) modulo.feitas += 1;
+  }
+
+  // Posição do usuário no ranking geral (por XP)
+  const minhaPosicao = ranking.findIndex((p) => p.id === user.id) + 1;
 
   // Mapeamento de tipos de medalha para label e emoji
   const badgeLabels = {
@@ -72,195 +97,224 @@ export default function Dashboard({ user, onTabChange }) {
   }
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6 animate-fade-in">
+    <div className="px-4 md:px-8 pt-2 pb-8 grid grid-cols-1 lg:grid-cols-2 gap-4 animate-fade-in">
 
-      {/* ── Saudação ── */}
-      <div>
-        <h2 className="text-3xl font-extrabold text-slate-800">
-          Olá, {user.nome}! 👋
-        </h2>
-        <p className="text-slate-500 mt-1">Continue sua jornada de educação financeira.</p>
-      </div>
-
-      {/* ── Grid de Estatísticas (4 cards) ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-
-        {/* Card: Nível */}
-        <div
-          className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 flex items-center justify-between"
-          data-finbot-context="Nível do usuário na plataforma EduFinance. O nível sobe a cada 100 pontos de XP conquistados. Níveis mais altos desbloqueiam novos conteúdos e badges especiais."
-        >
-          <div>
-            <p className="text-3xl font-black text-slate-800">{user.nivel}</p>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">Nível</p>
-          </div>
-          {/* Ícone em azul (elemento de progresso/aprendizado) */}
-          <div className="w-11 h-11 rounded-sm flex items-center justify-center"
-            style={{ background: "color-mix(in srgb, var(--color-primary) 12%, transparent)" }}>
-            <Award className="w-5 h-5" style={{ color: "var(--color-primary)" }} />
-          </div>
-        </div>
-
-        {/* Card: XP — cor laranja */}
-        <div
-          className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 flex items-center justify-between"
-          data-finbot-context={`XP (Pontos de Experiência) do usuário: ${user.xp} XP. Você ganha XP ao concluir aulas, responder perguntas corretamente e fazer simulações. Acumule 100 XP para subir de nível!`}
-        >
-          <div>
-            <p className="text-3xl font-black text-slate-800">{user.xp}</p>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">XP Total</p>
-          </div>
-          {/* Laranja = XP, conquistas, gamificação */}
-          <div className="w-11 h-11 rounded-sm flex items-center justify-center"
-            style={{ background: "color-mix(in srgb, var(--color-accent) 12%, transparent)" }}>
-            <Zap className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
-          </div>
-        </div>
-
-        {/* Card: Progresso */}
-        <div
-          className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 flex items-center justify-between"
-          data-finbot-context={`Progresso na Trilha de Aprendizado: ${progressPercent}% completo (${completedLessons} de ${totalLessons} aulas). Complete todas as aulas para dominar educação financeira!`}
-        >
-          <div>
-            <p className="text-3xl font-black text-slate-800">{progressPercent}%</p>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">Progresso</p>
-          </div>
-          <div className="w-11 h-11 bg-emerald-50 rounded-sm flex items-center justify-center">
-            <BookOpen className="w-5 h-5 text-emerald-500" />
-          </div>
-        </div>
-
-        {/* Card: Badges — laranja (conquista/gamificação) */}
-        <div
-          className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 flex items-center justify-between"
-          data-finbot-context={`Badges (insígnias) conquistados: ${medals.length} badges. Badges são prêmios virtuais que você ganha ao atingir marcos na plataforma, como concluir sua primeira aula ou fazer sua primeira simulação.`}
-        >
-          <div>
-            <p className="text-3xl font-black text-slate-800">{medals.length}</p>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">Badges</p>
-          </div>
-          {/* Accent color para conquistas/achievements */}
-          <div className="w-11 h-11 rounded-sm flex items-center justify-center"
-            style={{ background: "color-mix(in srgb, var(--color-accent) 12%, transparent)" }}>
-            <Trophy className="w-5 h-5" style={{ color: "var(--color-accent)" }} />
-          </div>
-        </div>
-      </div>
-
-      {/* ── Barra de Progresso na Trilha ── */}
-      <div
-        className="bg-white p-6 rounded-sm shadow-sm border border-slate-100 space-y-3"
-        data-finbot-context="Barra de Progresso na Trilha de Aprendizado. Mostra visualmente quantas aulas foram concluídas no total. Azul representa o progresso já feito, cinza o que falta."
+      {/* ── Progresso na Trilha: medidor + módulos ── */}
+      <Card
+        title="Progresso na Trilha"
+        actions={<IconButton icon={ArrowRight} label="Abrir a Trilha de Aprendizado" onClick={() => onTabChange("trilha")} />}
+        data-finbot-context={`Progresso na Trilha de Aprendizado: ${progressPercent}% completo (${completedLessons} de ${totalLessons} aulas). Complete todas as aulas para dominar educação financeira!`}
       >
-        <h3 className="text-sm font-bold text-slate-800">Progresso na Trilha</h3>
-        {/* Barra de fundo cinza */}
-        <div className="w-full bg-slate-100 h-3.5 rounded-full overflow-hidden">
-          {/* Preenchimento azul proporcional ao progresso */}
-          <div
-            className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${progressPercent}%`, background: "var(--color-primary)" }}
-          />
-        </div>
-        <p className="text-sm text-slate-500 font-medium">
-          {completedLessons} de {totalLessons} aulas concluídas
-        </p>
-      </div>
+        <div className="flex flex-col sm:flex-row items-center gap-6">
+          {/* Medidor em arco: trilha cinza + preenchimento proporcional ao progresso */}
+          <div className="relative w-52 shrink-0">
+            <svg viewBox="0 0 200 112" className="w-full">
+              <defs>
+                <linearGradient id="arco-progresso" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" style={{ stopColor: "var(--color-primary)" }} />
+                  <stop offset="100%" style={{ stopColor: "var(--color-accent)" }} />
+                </linearGradient>
+              </defs>
+              <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" strokeWidth="10" strokeLinecap="round"
+                style={{ stroke: "var(--color-border)" }} />
+              {progressPercent > 0 && (
+                <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" strokeWidth="10" strokeLinecap="round"
+                  stroke="url(#arco-progresso)"
+                  strokeDasharray={`${(progressPercent / 100) * ARCO} ${ARCO}`}
+                  className="transition-all duration-700" />
+              )}
+            </svg>
+            <div className="absolute inset-x-0 bottom-0 text-center">
+              <p className="text-3xl font-black text-slate-800 leading-none">{progressPercent}%</p>
+              <p className="text-xs font-semibold text-slate-400 mt-1">
+                {completedLessons} de {totalLessons} aulas
+              </p>
+            </div>
+          </div>
 
-      {/* ── Botões de Ação Rápida ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Legenda: um módulo por linha, com linha pontilhada até o valor */}
+          <div className="flex-1 w-full space-y-3">
+            {modulos.length === 0 ? (
+              <p className="text-sm text-slate-400 italic">Nenhuma aula cadastrada ainda.</p>
+            ) : (
+              modulos.map((m, i) => (
+                <div key={m.nome} className="flex items-center gap-2.5 text-sm">
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0"
+                    style={{ background: m.feitas > 0 ? CORES_MODULO[i % CORES_MODULO.length] : "#cbd5e1" }} />
+                  <span className="font-semibold text-slate-700 capitalize truncate">{m.nome}</span>
+                  <span className="flex-1 border-b border-dashed border-slate-200 min-w-4" />
+                  <span className={`font-extrabold ${m.feitas > 0 ? "text-slate-800" : "text-slate-400"}`}>
+                    {m.feitas}/{m.total}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
         {/* Botão principal: usa var(--color-primary) e var(--color-text-on-primary) */}
         <button
           onClick={() => onTabChange("trilha")}
-          className="font-bold py-4 px-4 rounded-sm shadow-md transition-all duration-150 active:scale-98 flex items-center justify-center gap-2 text-sm hover:opacity-90"
+          className="mt-6 w-full font-bold py-3 px-4 rounded-sm shadow-md transition-all duration-150 flex items-center justify-center gap-2 text-sm hover:opacity-90"
           style={{ background: "var(--color-primary)", color: "var(--color-text-on-primary)" }}
           data-finbot-context="Botão 'Continuar Aprendendo': leva você à Trilha de Aprendizado, onde há aulas curtas sobre finanças no estilo Duolingo. Complete aulas para ganhar XP e subir de nível!"
         >
           <BookOpen className="w-4 h-4" />
           Continuar Aprendendo
         </button>
+      </Card>
 
-        {/* Botão secundário: outline com a cor primary */}
-        <button
-          onClick={() => onTabChange("simulador")}
-          className="bg-white hover:opacity-90 border font-bold py-4 px-4 rounded-sm shadow-sm transition flex items-center justify-center gap-2 text-sm"
-          style={{ color: "var(--color-primary)", borderColor: "var(--color-primary)" }}
-          data-finbot-context="Botão 'Nova Simulação': abre o Simulador de Investimentos, onde você pode calcular quanto seu dinheiro vai crescer com juros compostos ao longo do tempo."
-        >
-          <Calculator className="w-4 h-4" />
-          Nova Simulação
-        </button>
-      </div>
-
-      {/* ── Conquistas (Badges) ── */}
-      <div className="bg-white p-6 rounded-sm shadow-sm border border-slate-100 space-y-4">
-        <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">
-          Conquistas
-        </h3>
-        {medals.length === 0 ? (
-          <p className="text-sm text-slate-400 italic">
-            Nenhuma conquista ainda. Complete aulas e simulações para ganhar badges!
-          </p>
+      {/* ── Ranking: primeiros colocados + posição do usuário ── */}
+      <Card
+        title="Ranking"
+        actions={<IconButton icon={ArrowRight} label="Abrir o Ranking" onClick={() => onTabChange("ranking")} />}
+        data-finbot-context="Prévia do Ranking: mostra os usuários com mais XP na plataforma e a sua posição entre eles."
+      >
+        {ranking.length === 0 ? (
+          <EmptyState icon={Trophy} title="Ranking indisponível" text="Não foi possível carregar a classificação agora." />
         ) : (
-          <div className="flex flex-wrap gap-2">
-            {medals.map((m) => {
-              const info = badgeLabels[m.tipoMedalha] || { label: m.tipoMedalha, icon: "🎖️" };
-              return (
-                <span
-                  key={m.id}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold shadow-sm"
-                  style={{
-                    background: "var(--color-accent)",      // Cor de destaque para badges
-                    color: "var(--color-text-on-primary)",  // Garante contraste
-                  }}
-                  data-finbot-context={`Badge: ${info.label}. Uma conquista desbloqueada por completar um marco na plataforma EduFinance.`}
-                >
-                  <span>{info.icon}</span>
-                  <span>{info.label}</span>
-                </span>
-              );
-            })}
+          <div className="flex flex-col sm:flex-row gap-5 h-full">
+            {/* Destaque escuro com a posição do usuário */}
+            <div className="rounded-sm p-5 flex flex-col justify-center sm:w-44 shrink-0 text-white"
+              style={{ background: "var(--color-primary-dark)" }}>
+              <p className="text-4xl font-black leading-none" style={{ color: "var(--color-accent)" }}>
+                {minhaPosicao > 0 ? `${minhaPosicao}º` : "—"}
+              </p>
+              <p className="text-sm font-bold mt-2">Sua posição</p>
+              <p className="text-xs text-white/60 font-medium mt-0.5">
+                entre {ranking.length} {ranking.length === 1 ? "usuário" : "usuários"}
+              </p>
+            </div>
+
+            <div className="flex-1 min-w-0">
+              {ranking.slice(0, 4).map((p, i) => (
+                <div key={p.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0 border-b border-slate-100 last:border-0">
+                  <span className="w-6 text-sm font-black text-slate-400 shrink-0">{i + 1}º</span>
+                  <Avatar nome={p.nome} avatarUrl={p.avatarUrl} className="w-8 h-8 text-xs" />
+                  <span className={`flex-1 truncate text-sm ${p.id === user.id ? "font-extrabold text-slate-800" : "font-semibold text-slate-700"}`}>
+                    {p.nome}{p.id === user.id && " (você)"}
+                  </span>
+                  <span className="text-sm font-black text-slate-800 shrink-0">{p.xp} XP</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-      </div>
+      </Card>
+
+      {/* ── Detalhes: números grandes + conquistas ── */}
+      <Card title="Detalhes">
+        <div className="grid grid-cols-3 gap-4">
+          <div data-finbot-context={`Aulas concluídas: ${completedLessons} de ${totalLessons}.`}>
+            <p className="text-2xl font-black text-slate-800">{completedLessons}<span className="text-slate-400 text-lg">/{totalLessons}</span></p>
+            <p className="text-xs font-semibold text-slate-400 mt-0.5">Aulas concluídas</p>
+          </div>
+          <div data-finbot-context={`Simulações realizadas: ${simulations.length}. Cada simulação projeta o crescimento de um investimento com juros compostos.`}>
+            <p className="text-2xl font-black text-slate-800">{simulations.length}</p>
+            <p className="text-xs font-semibold text-slate-400 mt-0.5">Simulações</p>
+          </div>
+          <div data-finbot-context={`Badges (insígnias) conquistados: ${medals.length} badges. Badges são prêmios virtuais que você ganha ao atingir marcos na plataforma, como concluir sua primeira aula ou fazer sua primeira simulação.`}>
+            <p className="text-2xl font-black text-slate-800">{medals.length}</p>
+            <p className="text-xs font-semibold text-slate-400 mt-0.5">Badges</p>
+          </div>
+        </div>
+
+        {/* Barra de XP para o próximo nível */}
+        <div className="mt-6" data-finbot-context="Nível do usuário na plataforma EduFinance. O nível sobe a cada 100 pontos de XP conquistados.">
+          <div className="flex justify-between text-xs font-bold text-slate-500 mb-1.5">
+            <span className="flex items-center gap-1.5">
+              <Award className="w-3.5 h-3.5" style={{ color: "var(--color-primary)" }} />
+              Nível {user.nivel}
+            </span>
+            <span>{user.xp % 100}/100 XP para o nível {user.nivel + 1}</span>
+          </div>
+          <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+            <div className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${user.xp % 100}%`, background: "linear-gradient(90deg, var(--color-primary), var(--color-accent))" }} />
+          </div>
+        </div>
+
+        {/* Conquistas (Badges) */}
+        <div className="mt-6">
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Conquistas</p>
+          {medals.length === 0 ? (
+            <p className="text-sm text-slate-400 italic">
+              Nenhuma conquista ainda. Complete aulas e simulações para ganhar badges!
+            </p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {medals.map((m) => {
+                const info = badgeLabels[m.tipoMedalha] || { label: m.tipoMedalha, icon: "🎖️" };
+                return (
+                  <span
+                    key={m.id}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold shadow-sm"
+                    style={{
+                      background: "var(--color-accent)",      // Cor de destaque para badges
+                      color: "var(--color-text-on-primary)",  // Garante contraste
+                    }}
+                    data-finbot-context={`Badge: ${info.label}. Uma conquista desbloqueada por completar um marco na plataforma EduFinance.`}
+                  >
+                    <span>{info.icon}</span>
+                    <span>{info.label}</span>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </Card>
 
       {/* ── Últimas Simulações ── */}
-      <div className="bg-white p-6 rounded-sm shadow-sm border border-slate-100 space-y-4">
-        <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">
-          Últimas Simulações
-        </h3>
+      <Card
+        title="Últimas Simulações"
+        actions={<IconButton icon={Plus} label="Nova simulação" onClick={() => onTabChange("simulador")} />}
+        data-finbot-context="Últimas simulações de investimento feitas no Simulador. O botão + abre o Simulador, onde você calcula quanto seu dinheiro vai crescer com juros compostos."
+      >
         {simulations.length === 0 ? (
-          <p className="text-sm text-slate-400 italic">
-            Nenhuma simulação ainda. Vá ao Simulador para projetar seus investimentos!
-          </p>
+          <EmptyState
+            icon={Calculator}
+            title="Nenhuma simulação ainda"
+            text="Vá ao Simulador para projetar seus investimentos!"
+            action={
+              <button
+                onClick={() => onTabChange("simulador")}
+                className="mt-2 bg-white hover:opacity-90 border font-bold py-2 px-4 rounded-sm shadow-sm transition flex items-center gap-2 text-xs"
+                style={{ color: "var(--color-primary)", borderColor: "var(--color-primary)" }}
+              >
+                <Calculator className="w-3.5 h-3.5" />
+                Nova Simulação
+              </button>
+            }
+          />
         ) : (
           <div className="space-y-2">
-            {simulations.slice(0, 3).map((sim) => (
+            {simulations.slice(0, 4).map((sim) => (
               <div
                 key={sim.id}
-                className="flex justify-between items-center bg-slate-50 p-4 rounded-sm border border-slate-100"
+                className="flex justify-between items-center gap-3 bg-slate-50 p-3.5 rounded-sm border border-slate-100"
                 data-finbot-context={`Simulação de ${sim.tipoInvestimento}: investimento inicial de R$${sim.valorInicial}, valor final projetado de R$${sim.valorFinal.toFixed(2)}. Uma simulação mostra quanto dinheiro você teria no futuro aplicando juros compostos.`}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg flex items-center justify-center"
-                    style={{ background: "#EFF6FF" }}>
-                    <TrendingUp className="w-4 h-4" style={{ color: "#2563EB" }} />
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: "color-mix(in srgb, var(--color-primary) 12%, transparent)" }}>
+                    <TrendingUp className="w-4 h-4" style={{ color: "var(--color-primary)" }} />
                   </div>
-                  <div>
-                    <p className="text-sm font-bold text-slate-800">{sim.tipoInvestimento}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{sim.tipoInvestimento}</p>
                     <p className="text-xs text-slate-400 font-semibold">
-                      Inicial: R$ {sim.valorInicial.toLocaleString("pt-BR")}
+                      Inicial: R$ {sim.valorInicial.toLocaleString("pt-BR")} · {sim.tempoMeses} meses
                     </p>
                   </div>
                 </div>
-                <span className="text-sm font-black text-emerald-600">
+                <span className="text-sm font-black text-emerald-600 shrink-0">
                   R$ {sim.valorFinal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                 </span>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

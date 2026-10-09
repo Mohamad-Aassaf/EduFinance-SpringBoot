@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { History, ArrowDownUp, Bot, MessageSquare, Trash2, ChevronRight } from "lucide-react";
+import { ArrowDownUp, Bot, MessageSquare, Trash2, ChevronRight } from "lucide-react";
 import { api } from "../api";
 
 export default function Historico({ user }) {
@@ -54,16 +54,7 @@ export default function Historico({ user }) {
     }`;
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6 animate-[fadeIn_0.3s_ease-out]">
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2">
-          <History className="w-8 h-8 text-indigo-500" />
-          Histórico
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Registro de operações de mercado e conversas com o Professor FinBot.
-        </p>
-      </div>
+    <div className="px-4 md:px-8 pt-2 pb-8 space-y-6 animate-[fadeIn_0.3s_ease-out]">
 
       {/* Tab switcher */}
       <div className="flex gap-2 bg-slate-100 p-1 rounded-sm w-fit">

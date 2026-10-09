@@ -183,23 +183,10 @@ export default function Mercado({ user, onUpdateUser }) {
   };
 
   return (
-    <div className="p-8 max-w-5xl mx-auto space-y-6 animate-[fadeIn_0.3s_ease-out]">
-      <div className="flex justify-between items-center flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-800">Mercado</h1>
-          <p className="text-sm text-slate-500 mt-1">Explore ações e invista com seu saldo virtual.</p>
-        </div>
-        <div className="bg-white px-4 py-2 rounded-sm border border-slate-100 shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700">
-          <DollarSign className="w-4 h-4 text-emerald-500" />
-          <span>Saldo Virtual:</span>
-          <span className="text-emerald-600 font-extrabold">
-            R$ {user.saldoVirtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-          </span>
-        </div>
-      </div>
-
-      {/* Barra de Busca */}
-      <div className="relative">
+    <div className="px-4 md:px-8 pt-2 pb-8 space-y-6 animate-[fadeIn_0.3s_ease-out]">
+      {/* Barra de Busca + saldo disponível */}
+      <div className="flex flex-col-reverse md:flex-row md:items-stretch gap-3">
+      <div className="relative flex-1">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <input
           type="text"
@@ -208,6 +195,14 @@ export default function Mercado({ user, onUpdateUser }) {
           onChange={(e) => setSearch(e.target.value)}
           className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-semibold text-slate-750 bg-white"
         />
+      </div>
+        <div className="bg-white px-4 py-2 rounded-sm border border-slate-100 shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 whitespace-nowrap">
+          <DollarSign className="w-4 h-4 text-emerald-500" />
+          <span>Saldo Virtual:</span>
+          <span className="text-emerald-600 font-extrabold">
+            R$ {user.saldoVirtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </span>
+        </div>
       </div>
 
       {/* Grid de Ações */}

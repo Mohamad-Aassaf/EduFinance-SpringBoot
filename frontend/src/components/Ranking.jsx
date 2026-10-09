@@ -29,16 +29,7 @@ export default function Ranking({ user }) {
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto space-y-6 animate-[fadeIn_0.3s_ease-out]">
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-800 flex items-center gap-2">
-          <Trophy className="w-8 h-8 text-yellow-500" />
-          Classificação Geral
-        </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Acompanhe o progresso dos seus colegas e dispute o topo do ranking.
-        </p>
-      </div>
+    <div className="px-4 md:px-8 pt-2 pb-8 space-y-6 animate-[fadeIn_0.3s_ease-out]">
 
       <div className="bg-white rounded-sm shadow-sm border border-slate-100 overflow-hidden">
         <div className="divide-y divide-slate-100">
