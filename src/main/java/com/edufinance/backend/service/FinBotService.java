@@ -25,7 +25,8 @@ public class FinBotService {
     // Admin Host Config (PC vs Notebook vs Custom)
     private String activeHostMode = "pc"; // "pc", "notebook", "custom"
     private String pcUrl = "http://100.83.132.45:11434";
-    private String notebookUrl = "http://localhost:11434";
+    @Value("${ollama.notebook.url:http://localhost:11434}")
+    private String notebookUrl;
     private String customUrl = "http://localhost:11434";
 
     public String getOllamaApiUrl() {

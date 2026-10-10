@@ -26,6 +26,8 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/edufinance
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: root
+      # Dentro do container, localhost é o próprio container; o Ollama da máquina fica em host.docker.internal
+      OLLAMA_NOTEBOOK_URL: http://host.docker.internal:11434
     depends_on:
       db:
         condition: service_healthy
@@ -36,7 +38,8 @@ services:
     build:
       context: ./frontend
       args:
-        VITE_API_URL: http://localhost:8080
+        # Para acesso pela rede local, defina VITE_API_URL com o IP da máquina (ex.: no .env)
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
     depends_on:
       - backend
     ports:
