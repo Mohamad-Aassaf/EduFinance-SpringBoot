@@ -303,9 +303,10 @@ export default function App() {
   const [revendoIntro, setRevendoIntro] = useState(false);
   // Muda ao sair da introdução, para o conteúdo do app entrar com animação
   const [entradaApp, setEntradaApp] = useState(0);
-  // A entrada do app começa junto com a saída da introdução, para uma transição contínua
+  // A entrada do app começa junto com a saída da introdução, para uma transição contínua.
+  // Termine como terminar (primeiro acesso, revisão pelo Perfil ou fechando no X), vai para o Dashboard.
   const handleIntroSaindo = () => {
-    if (!revendoIntro) setActiveTab("dashboard");
+    setActiveTab("dashboard");
     setEntradaApp((n) => n + 1);
   };
   const handleIntroConcluida = (perfil) => {
