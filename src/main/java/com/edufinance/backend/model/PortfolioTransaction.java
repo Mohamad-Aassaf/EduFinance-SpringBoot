@@ -35,6 +35,10 @@ public class PortfolioTransaction {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    // Removida do histórico pelo usuário; continua valendo para o cálculo da carteira
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean hidden = false;
+
     public PortfolioTransaction() {
     }
 
@@ -108,5 +112,13 @@ public class PortfolioTransaction {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean isHidden() {
+        return hidden;
+    }
+
+    public void setHidden(boolean hidden) {
+        this.hidden = hidden;
     }
 }

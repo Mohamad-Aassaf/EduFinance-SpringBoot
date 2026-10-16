@@ -22,6 +22,14 @@ public class ChatMessage {
     @Column(columnDefinition = "TEXT", nullable = false)
     private String content;
 
+    // Modo em que a resposta foi gerada: "closed" (base própria), "open" (web) ou null (sem consulta)
+    @Column(length = 20)
+    private String mode;
+
+    // Fontes consultadas para a resposta, em JSON: [{"title": "...", "url": "..."}]
+    @Column(columnDefinition = "TEXT")
+    private String sources;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -45,6 +53,12 @@ public class ChatMessage {
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+
+    public String getMode() { return mode; }
+    public void setMode(String mode) { this.mode = mode; }
+
+    public String getSources() { return sources; }
+    public void setSources(String sources) { this.sources = sources; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

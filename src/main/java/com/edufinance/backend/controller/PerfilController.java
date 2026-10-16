@@ -1,20 +1,28 @@
 package com.edufinance.backend.controller;
 
+import com.edufinance.backend.model.FotoPerfil;
 import com.edufinance.backend.model.Perfil;
+import com.edufinance.backend.repository.FotoPerfilRepository;
 import com.edufinance.backend.model.Medalha;
+import com.edufinance.backend.service.OfensivaService;
 import com.edufinance.backend.repository.PerfilRepository;
 import com.edufinance.backend.repository.MedalhaRepository;
 import com.edufinance.backend.dto.RankingDtos.DadosLocalizacao;
 import com.edufinance.backend.service.RegraNegocioException;
 import com.edufinance.backend.service.UsuarioAtualService;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Duration;
+import java.util.Base64;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,7 +38,69 @@ public class PerfilController {
     private MedalhaRepository medalhaRepository;
 
     @Autowired
+    private OfensivaService ofensivaService;
+
+    @Autowired
     private UsuarioAtualService usuarioAtual;
+
+    @Autowired
+    private FotoPerfilRepository fotoPerfilRepository;
+
+    private static final Set<String> TIPOS_FOTO = Set.of("image/jpeg", "image/png", "image/webp");
+    private static final int TAMANHO_MAXIMO_FOTO = 512 * 1024; // o frontend já reduz para ~256x256
+
+    /*
+     * Troca a foto de perfil do usuário logado.
+     * Recebe a imagem como data URL ("data:image/jpeg;base64,...") e guarda os bytes no banco.
+     * O avatarUrl ganha um ?v= novo a cada troca, para o navegador não mostrar a foto antiga do cache.
+     */
+    @PutMapping("/me/foto")
+    public ResponseEntity<Perfil> atualizarFoto(@RequestBody Map<String, String> request) {
+        Perfil perfil = usuarioAtual.exigir();
+        String imagem = request.get("imagem");
+        if (imagem == null || !imagem.startsWith("data:") || !imagem.contains(";base64,")) {
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "Envie a foto como imagem JPG, PNG ou WEBP.");
+        }
+
+        String tipo = imagem.substring(5, imagem.indexOf(';'));
+        if (!TIPOS_FOTO.contains(tipo)) {
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "Formato de imagem não aceito. Use JPG, PNG ou WEBP.");
+        }
+        byte[] dados;
+        try {
+            dados = Base64.getDecoder().decode(imagem.substring(imagem.indexOf(',') + 1));
+        } catch (IllegalArgumentException e) {
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "Não foi possível ler a imagem enviada.");
+        }
+        if (dados.length == 0 || dados.length > TAMANHO_MAXIMO_FOTO) {
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "A foto deve ter no máximo 512 KB.");
+        }
+
+        fotoPerfilRepository.save(new FotoPerfil(perfil.getId(), tipo, dados));
+        perfil.setAvatarUrl("/api/perfis/" + perfil.getId() + "/foto?v=" + System.currentTimeMillis());
+        return ResponseEntity.ok(perfilRepository.save(perfil));
+    }
+
+    // Remove a foto; o avatar volta a mostrar a inicial do nome
+    @DeleteMapping("/me/foto")
+    public ResponseEntity<Perfil> removerFoto() {
+        Perfil perfil = usuarioAtual.exigir();
+        fotoPerfilRepository.deleteById(perfil.getId());
+        perfil.setAvatarUrl(null);
+        return ResponseEntity.ok(perfilRepository.save(perfil));
+    }
+
+    // Imagem da foto de perfil (pública, como no ranking)
+    @GetMapping("/{id}/foto")
+    public ResponseEntity<byte[]> getFoto(@PathVariable Long id) {
+        return fotoPerfilRepository.findById(id)
+                .map(foto -> ResponseEntity.ok()
+                        .contentType(MediaType.parseMediaType(foto.getTipo()))
+                        // Cada troca muda o ?v= da URL, então a mesma URL pode ficar em cache por bastante tempo
+                        .cacheControl(CacheControl.maxAge(Duration.ofDays(30)).cachePublic())
+                        .body(foto.getDados()))
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
 
     // Retorna as medalhas conquistadas por um usuário
     @GetMapping("/{id}/medalhas")
@@ -49,7 +119,8 @@ public class PerfilController {
             email = principal.toString();
         }
         
-        Optional<Perfil> perfilOpt = perfilRepository.findByEmail(email);
+        // Abrir o app conta como uso do dia para a ofensiva
+        Optional<Perfil> perfilOpt = perfilRepository.findByEmail(email).map(ofensivaService::registrarAcesso);
         return perfilOpt.map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }
@@ -145,17 +216,23 @@ public class PerfilController {
         return limpo.isEmpty() ? null : limpo;
     }
 
-    // Atualiza o saldo virtual do usuário
-    @PutMapping("/{id}/saldo")
-    public ResponseEntity<Perfil> updateSaldo(@PathVariable Long id, @RequestParam double valor) {
-        Optional<Perfil> perfilOpt = perfilRepository.findById(id);
-        if (perfilOpt.isPresent()) {
-            Perfil perfil = perfilOpt.get();
-            perfil.setSaldoVirtual(valor);
-            Perfil atualizado = perfilRepository.save(perfil);
-            return ResponseEntity.ok(atualizado);
-        } else {
-            return ResponseEntity.notFound().build();
+    /*
+     * Define o saldo virtual do próprio usuário, para testes.
+     * Só vale para quem está autenticado: ninguém altera o saldo de outra pessoa.
+     */
+    @PutMapping("/me/saldo")
+    public ResponseEntity<Perfil> definirMeuSaldo(@RequestBody Map<String, Object> payload) {
+        Perfil perfil = usuarioAtual.exigir();
+        double valor;
+        try {
+            valor = Double.parseDouble(payload.get("valor").toString());
+        } catch (Exception e) {
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "Informe um valor numérico para o saldo.");
         }
+        if (!(valor >= 0) || valor > 1_000_000_000) {
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "O saldo deve ficar entre R$ 0 e R$ 1 bilhão.");
+        }
+        perfil.setSaldoVirtual(Math.round(valor * 100.0) / 100.0);
+        return ResponseEntity.ok(perfilRepository.save(perfil));
     }
 }

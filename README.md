@@ -7,15 +7,16 @@ O projeto tem um backend em Java/Spring Boot e um frontend em React, em pastas s
 ## Funcionalidades
 
 - **Autenticação** com e-mail e senha (JWT), cadastro e recuperação de senha simulada.
-- **Trilha de aprendizado**: aulas organizadas por módulo, com perguntas de múltipla escolha. Concluir aulas dá XP; a cada 100 XP o usuário sobe de nível.
+- **Trilha de aprendizado** (15 aulas em 5 módulos; as de Economia Global e Criptomoedas vêm de `src/main/resources/trilha-extra.json` e são cadastradas na inicialização): aulas organizadas por módulo, com perguntas de múltipla escolha. Concluir aulas dá XP; a cada 100 XP o usuário sobe de nível.
 - **Medalhas** por marcos como a primeira aula e a primeira simulação.
-- **Simulador de investimentos** com juros compostos e aportes mensais.
-- **Mercado e carteira**: compra e venda de ações com saldo virtual (R$ 100.000 iniciais) e histórico de transações.
+- **Simulador de investimentos** com juros compostos e aportes mensais. No modo **Meta**, o usuário informa um objetivo (ex.: casamento), o valor, a taxa e o prazo, e o simulador calcula quanto investir por mês. As simulações são projeções e não alteram o saldo virtual.
+- **Mercado e carteira**: compra e venda de ações com saldo virtual (R$ 100.000 iniciais) e histórico de transações. O saldo só muda com compras e vendas. Uma operação pode ser removida do histórico; ela continua valendo para a carteira e o saldo não muda.
 - **Rankings**: classificação global, por país, por estado e por cidade, ordenada por XP ou por saldo virtual, com busca por nome e paginação.
 - **Grupos de ranking**: qualquer usuário cria um grupo para competir com conhecidos, convida pessoas por código ou link e administra os membros.
-- **FinBot**: chat com um modelo de linguagem servido pelo Ollama, com histórico de conversas e um modo "inspetor" que explica elementos da tela.
-- **Notícias** de finanças via NewsAPI (endpoint `/api/blog/news` no backend; ainda não exibido no frontend).
-- **Personalização**: 7 paletas de cores e modo escuro, salvos no navegador.
+- **FinBot**: chat com um modelo de linguagem servido pelo Ollama, com histórico de conversas e um modo "inspetor" que explica elementos da tela. O chat tem dois modos de conhecimento: **Fechado** (responde só com a base própria) e **Aberto** (busca na web).
+- **Notícias**: aba com notícias de economia e finanças via NewsAPI, com temas prontos e busca por assunto.
+- **Personalização**: 7 paletas de cores, modo escuro e microinterações (animações de resposta, que podem ser desativadas no Perfil), salvos no navegador.
+- **Saldo para testes**: no Perfil, cada usuário pode definir o próprio saldo virtual.
 
 ## Tecnologias
 
@@ -33,6 +34,7 @@ O projeto tem um backend em Java/Spring Boot e um frontend em React, em pastas s
 ├── src/main/java/com/edufinance/backend   Backend (config, controller, model, repository, service)
 ├── src/main/resources/application.properties
 ├── frontend/                              Aplicação React
+├── base-conhecimento/                     Documentos (.pdf, .txt, .md) do modo Fechado do FinBot
 ├── eduFinance.sql                         Esquema e dados iniciais do banco
 ├── docker/db/                             Scripts extras de inicialização do banco no Docker
 ├── Dockerfile, docker-compose.yml         Containerização
@@ -117,6 +119,8 @@ Os valores padrão estão em `src/main/resources/application.properties`. Qualqu
 | `ollama.api.url` | `OLLAMA_API_URL` | endereço de reserva do servidor Ollama (o endereço ativo é escolhido na aplicação, veja abaixo) |
 | `ollama.default.model` | `OLLAMA_DEFAULT_MODEL` | `llama3.2:1b` |
 | `news.api.key` | `NEWS_API_KEY` | chave padrão definida no código |
+| `finbot.admin.password` | `FINBOT_ADMIN_PASSWORD` | `edufinance` (senha do painel de administração da IA; troque antes de publicar) |
+| `finbot.knowledge.dir` | `FINBOT_KNOWLEDGE_DIR` | `base-conhecimento` (pasta dos documentos do modo Fechado) |
 
 A chave que assina os tokens JWT é gerada a cada inicialização do backend. Por isso, reiniciar o backend invalida as sessões abertas, e os usuários precisam entrar de novo.
 
@@ -124,15 +128,28 @@ A chave que assina os tokens JWT é gerada a cada inicialização do backend. Po
 
 | Variável | Descrição | Padrão |
 |---|---|---|
-| `VITE_API_URL` | URL do backend acessada pelo navegador | `http://localhost:8080` |
+| `VITE_API_URL` | URL do backend acessada pelo navegador | host da própria página, porta `8080` |
 
 Em desenvolvimento, o valor vem de `frontend/.env.development`. No Docker, ele é passado como argumento de build no `docker-compose.yml`.
 
 ### FinBot (Ollama)
 
-O FinBot depende de um servidor Ollama, que não é iniciado por este projeto. O endereço do servidor pode ser trocado em tempo de execução pelo botão "IA" no cabeçalho da aplicação. Sem um servidor Ollama acessível, o restante da plataforma funciona normalmente; apenas o chat fica indisponível.
+O FinBot depende de um servidor Ollama, que não é iniciado por este projeto. O endereço do servidor pode ser trocado em tempo de execução pelo botão "IA" no cabeçalho da aplicação. A troca exige a senha de administrador (`finbot.admin.password`), vale para todos os usuários e fica salva no banco. Sem um servidor Ollama acessível, o restante da plataforma funciona normalmente; apenas o chat fica indisponível.
 
 Se o backend estiver rodando no Docker e o Ollama na própria máquina, use `http://host.docker.internal:11434` em vez de `http://localhost:11434`.
+
+#### Modos Fechado e Aberto
+
+O Ollama não acessa a internet nem lê arquivos sozinho. Nos dois modos, é o backend que busca as informações e as entrega ao modelo junto com a pergunta. O modo é escolhido no seletor acima do campo de mensagem, e cada resposta mostra as fontes usadas.
+
+- **Fechado**: a resposta usa apenas a base própria, formada pelas aulas da trilha e pelos arquivos `.pdf`, `.txt` e `.md` da pasta `base-conhecimento/`. Para ampliar a base, basta colocar arquivos nessa pasta; eles são indexados na pergunta seguinte, sem reiniciar o backend. Se nada na base tratar do assunto, o FinBot avisa em vez de responder com o conhecimento do modelo. PDFs digitalizados como imagem, sem texto selecionável, não são lidos.
+- **Aberto**: o backend pesquisa a pergunta no DuckDuckGo (sem chave de API), abre as primeiras páginas e envia os trechos ao modelo. Se a busca falhar, usa notícias da NewsAPI. Neste modo, o texto da pergunta sai da máquina para o buscador.
+
+A qualidade depende do modelo: o `llama3.2:1b` costuma distorcer o conteúdo das fontes; o `mistral:7b` segue os trechos com bem mais fidelidade.
+
+### Notícias (NewsAPI)
+
+A aba Notícias usa o endpoint `/api/blog/news`. O plano gratuito da NewsAPI permite 100 requisições por dia, então o backend guarda cada busca por 15 minutos.
 
 ## Rankings e grupos
 

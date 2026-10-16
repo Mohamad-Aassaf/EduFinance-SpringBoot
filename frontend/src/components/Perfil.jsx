@@ -15,6 +15,10 @@
  *    - Resultado: Conservador (5-11), Moderado (12-18), Arrojado (19-25)
  *    - Salvo no localStorage (sem necessidade de endpoint de API extra)
  *
+ * 3. FOTO DE PERFIL
+ *    - O botão da câmera abre o seletor de arquivos; a imagem é recortada no centro e
+ *      reduzida para 256x256 no navegador antes de ir para o backend
+ *
  * Props recebidas:
  * - user, onUpdateUser: dados e atualização do usuário
  * - paletteId: id da paleta atual (string)
@@ -22,15 +26,164 @@
  * - palettes: array de paletas disponíveis (vem do App.jsx)
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Award, Zap, Trophy, Flame, Star, BookOpen, TrendingUp,
   Calendar, Shield, Sparkles, Crown, Pencil, Palette,
-  ChevronRight, CheckCircle, RefreshCw, X, Server, MapPin
+  ChevronRight, CheckCircle, RefreshCw, X, Server, MapPin, Wallet, Wand2, Camera, Trash2
 } from "lucide-react";
 import { api } from "../api";
 import { LocalizacaoForm } from "./rankingShared";
 import AdminAiHostModal from "./AdminAiHostModal";
+import { Avatar, Button, inputClass, labelClass } from "./ui";
+import { toast, useMotionEnabled, setMotionEnabled } from "../motion";
+
+const SALDO_INICIAL = 100000;
+
+// ─── FOTO DE PERFIL ────────────────────────────────────────────────────────
+const TAMANHO_FOTO = 256;
+
+/*
+ * Recorta o centro da imagem num quadrado e reduz para 256x256 em JPEG.
+ * Assim uma foto de celular de vários MB vira algumas dezenas de KB antes do envio.
+ */
+function reduzirFoto(arquivo) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(arquivo);
+    const img = new Image();
+    img.onload = () => {
+      const lado = Math.min(img.width, img.height);
+      const canvas = document.createElement("canvas");
+      canvas.width = TAMANHO_FOTO;
+      canvas.height = TAMANHO_FOTO;
+      canvas
+        .getContext("2d")
+        .drawImage(img, (img.width - lado) / 2, (img.height - lado) / 2, lado, lado, 0, 0, TAMANHO_FOTO, TAMANHO_FOTO);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Não foi possível abrir essa imagem. Tente uma foto JPG ou PNG."));
+    };
+    img.src = url;
+  });
+}
+
+// ─── SALDO VIRTUAL PARA TESTES ─────────────────────────────────────────────
+// Deixa o usuário escolher o próprio saldo virtual, para experimentar o Mercado à vontade
+function SaldoTesteCard({ user, onUpdateUser }) {
+  const [valor, setValor] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function definir(novoValor) {
+    setSaving(true);
+    setError("");
+    try {
+      const perfil = await api.put("/api/perfis/me/saldo", { valor: novoValor });
+      onUpdateUser(perfil);
+      setValor("");
+      toast(`Saldo virtual definido em R$ ${perfil.saldoVirtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}.`);
+    } catch (err) {
+      setError(err.message || "Não foi possível alterar o saldo.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    definir(parseFloat(valor));
+  };
+
+  return (
+    <div
+      className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 space-y-4"
+      data-finbot-context="Saldo virtual para testes: aqui você define quanto dinheiro fictício quer ter para experimentar compras e vendas no Mercado. Não é dinheiro real. Como o saldo entra no ranking por saldo, mudar o valor também muda a sua posição nele."
+    >
+      <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex flex-wrap items-center gap-x-2">
+        <Wallet className="w-4 h-4" style={{ color: "var(--color-primary)" }} />
+        Saldo Virtual
+        <span className="text-[10px] font-normal text-slate-400">— Ajuste o valor para fazer testes</span>
+      </h3>
+
+      <p className="text-xs text-slate-500 leading-relaxed">
+        Saldo atual:{" "}
+        <strong className="text-slate-800">
+          R$ {user.saldoVirtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+        </strong>
+        . O novo valor substitui o saldo disponível; as ações da sua carteira não mudam. O ranking por saldo passa a
+        usar o novo valor.
+      </p>
+
+      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row sm:items-end gap-2">
+        <div className="flex-1 min-w-0">
+          <label htmlFor="saldo-teste" className={labelClass}>Novo saldo (R$)</label>
+          <input
+            id="saldo-teste"
+            type="number"
+            required
+            min="0"
+            max="1000000000"
+            step="0.01"
+            placeholder="Ex: 50000"
+            value={valor}
+            onChange={(e) => setValor(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+        <Button type="submit" disabled={saving || valor === ""} className="py-2.5">
+          Definir saldo
+        </Button>
+        <Button
+          variant="secondary"
+          icon={RefreshCw}
+          disabled={saving || user.saldoVirtual === SALDO_INICIAL}
+          onClick={() => definir(SALDO_INICIAL)}
+          className="py-2.5"
+        >
+          Voltar a R$ 100.000
+        </Button>
+      </form>
+
+      {error && <p role="alert" className="text-xs font-bold text-red-700">{error}</p>}
+    </div>
+  );
+}
+
+// ─── MICROINTERAÇÕES (liga/desliga) ────────────────────────────────────────
+function MicrointeracoesCard() {
+  const enabled = useMotionEnabled();
+
+  const alternar = () => {
+    setMotionEnabled(!enabled);
+    toast(enabled ? "Microinterações desativadas." : "Microinterações ativadas.", "info");
+  };
+
+  return (
+    <div className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 flex items-center gap-4">
+      <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
+        <Wand2 className="w-4 h-4 text-indigo-500" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 id="microinteracoes-titulo" className="text-sm font-bold text-slate-800">Microinterações</h3>
+        <p className="text-xs text-slate-500 leading-relaxed mt-0.5">
+          Animações de resposta ao clicar, comemoração ao concluir aulas, números que contam e vibração no celular.
+          Desative se preferir uma interface sem movimento.
+        </p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={enabled}
+        aria-labelledby="microinteracoes-titulo"
+        onClick={alternar}
+        className="mi-switch"
+      />
+    </div>
+  );
+}
 
 // ─── PERGUNTAS DO TESTE DE PERFIL DE INVESTIDOR ────────────────────────────
 /*
@@ -100,9 +253,11 @@ const ALL_BADGES = [
   { type: "first_lesson", label: "Primeira Aula", description: "Completou a primeira aula", icon: BookOpen, color: "text-blue-500 bg-blue-50 border-blue-200" },
   { type: "Simulador Pro", label: "Primeiro Simulador", description: "Fez a primeira simulação", icon: TrendingUp, color: "text-emerald-500 bg-emerald-50 border-emerald-200" },
   { type: "module_complete", label: "Módulo Completo", description: "Completou todas as aulas", icon: Crown, color: "text-yellow-600 bg-yellow-50 border-yellow-200" },
-  { type: "streak_7", label: "Ofensiva 7 dias", description: "Estudou 7 dias seguidos", icon: Flame, color: "text-orange-500 bg-orange-50 border-orange-200" },
-  { type: "streak_30", label: "Ofensiva 30 dias", description: "Estudou 30 dias seguidos", icon: Flame, color: "text-orange-500 bg-orange-50 border-orange-200" },
+  { type: "Ofensiva 7 dias", label: "Ofensiva 7 dias", description: "Usou o app 7 dias seguidos", icon: Flame, color: "text-orange-500 bg-orange-50 border-orange-200" },
+  { type: "Ofensiva 30 dias", label: "Ofensiva 30 dias", description: "Usou o app 30 dias seguidos", icon: Flame, color: "text-orange-500 bg-orange-50 border-orange-200" },
 ];
+
+const formatarDias = (dias = 0) => `${dias} ${dias === 1 ? "dia" : "dias"}`;
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────
 export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange, palettes }) {
@@ -113,6 +268,10 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
   const [progress, setProgress] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Foto de perfil
+  const fotoInputRef = useRef(null);
+  const [enviandoFoto, setEnviandoFoto] = useState(false);
 
   // Edição de nome
   const [editModal, setEditModal] = useState(false);
@@ -173,6 +332,41 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
     }
   };
 
+  // ── Foto de perfil ──────────────────────────────────────────────
+  const handleFotoEscolhida = async (e) => {
+    const arquivo = e.target.files?.[0];
+    e.target.value = ""; // permite escolher o mesmo arquivo de novo
+    if (!arquivo) return;
+    if (!arquivo.type.startsWith("image/")) {
+      toast("Escolha um arquivo de imagem.", "error");
+      return;
+    }
+    setEnviandoFoto(true);
+    try {
+      const imagem = await reduzirFoto(arquivo);
+      const atualizado = await api.put("/api/perfis/me/foto", { imagem });
+      onUpdateUser(atualizado);
+      toast("Foto de perfil atualizada!");
+    } catch (err) {
+      toast(err.message || "Não foi possível trocar a foto.", "error");
+    } finally {
+      setEnviandoFoto(false);
+    }
+  };
+
+  const handleRemoverFoto = async () => {
+    setEnviandoFoto(true);
+    try {
+      const atualizado = await api.delete("/api/perfis/me/foto");
+      onUpdateUser(atualizado);
+      toast("Foto removida.");
+    } catch (err) {
+      toast(err.message || "Não foi possível remover a foto.", "error");
+    } finally {
+      setEnviandoFoto(false);
+    }
+  };
+
   // ── Teste de Perfil de Investidor ───────────────────────────────
   /*
    * Quando o usuário clica em uma opção, registramos os pontos
@@ -205,7 +399,7 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
   if (loading) {
     return (
       <div className="flex-1 p-8 flex items-center justify-center">
-        <div className="text-gray-500 font-medium animate-pulse">Carregando perfil...</div>
+        <div className="text-slate-500 font-medium animate-pulse">Carregando perfil...</div>
       </div>
     );
   }
@@ -218,12 +412,37 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
         <div className="absolute inset-0 pointer-events-none opacity-30"
           style={{ background: `radial-gradient(circle at top right, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent 70%)` }} />
 
-        {/* Avatar */}
-        <div
-          className="w-20 h-20 rounded-full flex items-center justify-center text-white font-extrabold text-3xl shadow-md border-4 border-white/80"
-          style={{ background: "var(--color-primary)" }}
-        >
-          {user.nome.charAt(0).toUpperCase()}
+        {/* Avatar com troca de foto */}
+        <div className="relative shrink-0">
+          <Avatar
+            nome={user.nome}
+            avatarUrl={user.avatarUrl}
+            className={`w-24 h-24 text-4xl shadow-md border-4 border-white/80 ${enviandoFoto ? "opacity-50 animate-pulse" : ""}`}
+          />
+          <input ref={fotoInputRef} type="file" accept="image/*" className="hidden" onChange={handleFotoEscolhida} />
+          <button
+            type="button"
+            onClick={() => fotoInputRef.current?.click()}
+            disabled={enviandoFoto}
+            title="Trocar foto de perfil"
+            aria-label="Trocar foto de perfil"
+            className="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center shadow-md border-2 border-white transition hover:scale-105 disabled:opacity-60"
+            style={{ background: "var(--color-primary)", color: "var(--color-text-on-primary)" }}
+          >
+            <Camera className="w-4 h-4" />
+          </button>
+          {user.avatarUrl && (
+            <button
+              type="button"
+              onClick={handleRemoverFoto}
+              disabled={enviandoFoto}
+              title="Remover foto"
+              aria-label="Remover foto de perfil"
+              className="absolute bottom-0 left-0 w-7 h-7 rounded-full flex items-center justify-center shadow-md border-2 border-white bg-white text-slate-500 hover:text-red-500 transition disabled:opacity-60"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Informações */}
@@ -272,8 +491,8 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { icon: BookOpen, label: "Aulas Concluídas", value: `${completedLessons}/${totalLessons}`, color: "text-blue-500 bg-blue-50" },
-          { icon: Flame, label: "Ofensiva Atual", value: "1 dia", color: "text-orange-500 bg-orange-50" },
-          { icon: Star, label: "Maior Ofensiva", value: "1 dia", color: "text-yellow-600 bg-yellow-50" },
+          { icon: Flame, label: "Ofensiva Atual", value: formatarDias(user.ofensivaAtual), color: "text-orange-500 bg-orange-50" },
+          { icon: Star, label: "Maior Ofensiva", value: formatarDias(user.maiorOfensiva), color: "text-yellow-600 bg-yellow-50" },
           { icon: TrendingUp, label: "Transações", value: `${transactions.length}`, color: "text-emerald-500 bg-emerald-50" },
         ].map((stat, i) => {
           const Icon = stat.icon;
@@ -405,6 +624,12 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
         </div>
       </div>
 
+      {/* ── MICROINTERAÇÕES ─────────────────────────────────────────── */}
+      <MicrointeracoesCard />
+
+      {/* ── SALDO VIRTUAL PARA TESTES ──────────────────────────────── */}
+      <SaldoTesteCard user={user} onUpdateUser={onUpdateUser} />
+
       {/* ── SERVIDOR DA IA (ADMIN) ─────────────────────────────────── */}
       <div className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 space-y-3">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
@@ -424,7 +649,7 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
           </button>
         </div>
         <p className="text-xs text-slate-500 leading-relaxed">
-          Alterne o servidor onde o modelo Ollama está rodando entre o seu computador desktop (<strong>PC via Tailscale: 100.83.132.45</strong>) ou o <strong>Notebook local (localhost)</strong>.
+          Define em qual servidor o modelo Ollama roda (PC ou Notebook). A escolha vale para <strong>todos os usuários</strong> do EduFinance e exige a <strong>senha de administrador</strong>.
         </p>
       </div>
 

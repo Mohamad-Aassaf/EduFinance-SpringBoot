@@ -7,7 +7,18 @@ CREATE TABLE IF NOT EXISTS perfis (
     nivel INTEGER NOT NULL DEFAULT 1,
     avatar_url VARCHAR(255),
     saldo_virtual DOUBLE PRECISION DEFAULT 100000.0,
-    criado_em TIMESTAMP
+    criado_em TIMESTAMP,
+    ofensiva_atual INTEGER NOT NULL DEFAULT 0, -- dias seguidos usando a plataforma
+    maior_ofensiva INTEGER NOT NULL DEFAULT 0,
+    ultimo_dia_ativo DATE,
+    boas_vindas_concluidas BOOLEAN NOT NULL DEFAULT TRUE -- false só em contas criadas pelo app, que ainda vão ver as Boas-Vindas
+);
+
+-- Fotos de perfil enviadas pelos usuários (o perfil guarda só o endereço em avatar_url)
+CREATE TABLE IF NOT EXISTS fotos_perfil (
+    perfil_id BIGINT PRIMARY KEY REFERENCES perfis(id) ON DELETE CASCADE,
+    tipo VARCHAR(20) NOT NULL,
+    dados BYTEA NOT NULL
 );
 
 -- Senha padrão para todos os usuários de teste: "123456"
@@ -101,6 +112,8 @@ CREATE TABLE IF NOT EXISTS simulacoes (
     taxa_anual DOUBLE PRECISION NOT NULL,
     tempo_meses INTEGER NOT NULL,
     valor_final DOUBLE PRECISION NOT NULL,
+    valor_meta DOUBLE PRECISION, -- só no modo Meta do simulador
+    calculo_meta VARCHAR(10), -- só no modo Meta: 'aporte' (quanto investir por mês) ou 'prazo' (em quanto tempo)
     criado_em TIMESTAMP,
 
     FOREIGN KEY (usuario_id)
@@ -148,5 +161,6 @@ CREATE TABLE IF NOT EXISTS portfolio_transactions (
     price_per_unit DOUBLE PRECISION NOT NULL,
     total_value DOUBLE PRECISION NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    hidden BOOLEAN NOT NULL DEFAULT FALSE, -- removida do histórico, mas ainda conta para a carteira
     FOREIGN KEY (usuario_id) REFERENCES perfis(id)
 );

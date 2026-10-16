@@ -8,4 +8,5 @@ import java.util.List;
 @Repository
 public interface LicaoRepository extends JpaRepository<Licao, Long> {
     List<Licao> findByModulo(String modulo);
+    boolean existsByTitulo(String titulo);
 }

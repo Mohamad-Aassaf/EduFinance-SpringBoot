@@ -1,6 +1,7 @@
 package com.edufinance.backend.controller;
 
 import com.edufinance.backend.model.Perfil;
+import com.edufinance.backend.service.OfensivaService;
 import com.edufinance.backend.repository.PerfilRepository;
 import com.edufinance.backend.config.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,6 +22,9 @@ public class AuthController {
 
     @Autowired
     private PerfilRepository perfilRepository;
+
+    @Autowired
+    private OfensivaService ofensivaService;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -52,7 +56,7 @@ public class AuthController {
         novoPerfil.setNivel(1);
         novoPerfil.setCriadoEm(LocalDateTime.now());
 
-        Perfil perfilSalvo = perfilRepository.save(novoPerfil);
+        Perfil perfilSalvo = ofensivaService.registrarAcesso(perfilRepository.save(novoPerfil));
         String token = jwtUtil.gerarToken(perfilSalvo.getEmail());
 
         Map<String, Object> response = new HashMap<>();
@@ -77,7 +81,7 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("E-mail ou senha incorretos.");
         }
 
-        Perfil perfil = perfilOpt.get();
+        Perfil perfil = ofensivaService.registrarAcesso(perfilOpt.get());
         String token = jwtUtil.gerarToken(perfil.getEmail());
 
         Map<String, Object> response = new HashMap<>();

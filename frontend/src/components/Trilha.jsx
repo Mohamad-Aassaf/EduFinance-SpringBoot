@@ -2,11 +2,14 @@ import { useState, useEffect } from "react";
 import { CheckCircle, BookOpen, Star, Crown, Flame, Target, Trophy, Sparkles } from "lucide-react";
 import { api } from "../api";
 import LessonView from "./LessonView";
+import { toast } from "../motion";
 
 const MODULE_CONFIG = {
   fundamentos: { label: "Fundamentos", emoji: "📘", order: 1 },
   planejamento: { label: "Planejamento Financeiro", emoji: "📋", order: 2 },
   investimentos: { label: "Investimentos", emoji: "💰", order: 3 },
+  economia: { label: "Economia Global", emoji: "🌍", order: 4 },
+  cripto: { label: "Criptomoedas", emoji: "🪙", order: 5 },
 };
 
 export default function Trilha({ user, onUpdateUser }) {
@@ -56,19 +59,19 @@ export default function Trilha({ user, onUpdateUser }) {
     })
     .filter((m) => m.lessons.length > 0);
 
-  const handleLessonCompleted = (updatedUser, newBadges) => {
-    onUpdateUser(updatedUser);
-    if (newBadges && newBadges.length > 0) {
-      alert(`🎉 Parabéns! Você ganhou a medalha: ${newBadges.join(", ")}`);
+  // A janela da aula continua aberta mostrando o resultado; aqui só atualizamos os dados por trás
+  const handleLessonCompleted = (updatedUser) => {
+    if (updatedUser.nivel > user.nivel) {
+      toast(`Você subiu para o nível ${updatedUser.nivel}!`);
     }
-    setSelectedLesson(null);
+    onUpdateUser(updatedUser);
     loadData();
   };
 
   if (loading) {
     return (
       <div className="flex-1 p-8 flex items-center justify-center">
-        <div className="text-gray-500 font-medium animate-pulse">Carregando trilha...</div>
+        <div className="text-slate-500 font-medium animate-pulse">Carregando trilha...</div>
       </div>
     );
   }
@@ -97,7 +100,7 @@ export default function Trilha({ user, onUpdateUser }) {
       <div className="bg-white border border-slate-100 rounded-sm p-6 shadow-sm">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Progresso Geral</span>
-          <span className="text-sm font-extrabold text-indigo-650">{progressPercent}%</span>
+          <span className="text-sm font-extrabold text-indigo-600">{progressPercent}%</span>
         </div>
         <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
           <div
@@ -149,7 +152,7 @@ export default function Trilha({ user, onUpdateUser }) {
                     <div key={lesson.id} className="flex flex-col items-center relative">
                       {/* Linha Conectora */}
                       {idx > 0 && (
-                        <div className={`w-1 h-8 -mt-2 mb-2 transition-colors duration-500 ${completed ? "bg-emerald-400" : "bg-slate-200"
+                        <div className={`w-1 h-6 mt-6 mb-2 rounded-full transition-colors duration-500 ${completed ? "bg-emerald-400" : "bg-slate-200"
                           }`} />
                       )}
 
@@ -199,6 +202,7 @@ export default function Trilha({ user, onUpdateUser }) {
         <LessonView
           lesson={selectedLesson}
           user={user}
+          alreadyCompleted={completedIds.has(selectedLesson.id)}
           onClose={() => setSelectedLesson(null)}
           onCompleted={handleLessonCompleted}
         />

@@ -83,7 +83,8 @@ graph TD
 ### 2. Simulador de Investimentos (Juros Compostos)
 *   **Visualização Gráfica:** Gráfico de **Área interativo** mostrando a evolução patrimonial mês a mês.
 *   **Investido vs. Rendido:** Separação visual clara do dinheiro aportado pelo usuário do crescimento exponencial gerado pelos juros.
-*   **Conversão para Saldo Virtual:** Ao rodar uma simulação de sucesso, o saldo virtual do usuário é atualizado no banco de dados.
+*   **Modo Meta:** O usuário informa um objetivo (ex.: casamento), o valor necessário, a taxa e o prazo; o simulador calcula o aporte mensal para chegar lá.
+*   **Sem efeito no Saldo Virtual:** As simulações são projeções salvas no histórico. O saldo virtual só muda com compras e vendas no Mercado.
 
 ### 3. Mercado de Ações Simulado & Carteira
 *   **Oscilações de Mercado:** Cotações que oscilam em tempo real a cada 6 segundos via simulação determinística.

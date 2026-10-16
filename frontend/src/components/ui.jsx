@@ -10,6 +10,9 @@
  * então acompanham a paleta e o modo escuro escolhidos no Perfil.
  */
 
+import { useState } from "react";
+import { urlDaApi } from "../api";
+
 export function Card({ title, subtitle, icon: Icon, actions, children, className = "", bodyClassName = "", ...rest }) {
   return (
     <section
@@ -54,13 +57,15 @@ export function IconButton({ icon: Icon, label, onClick, active = false, classNa
 }
 
 export function Avatar({ nome, avatarUrl, className = "w-9 h-9 text-sm" }) {
+  // Se a imagem não carregar, mostra a inicial em vez de um ícone quebrado
+  const [falhou, setFalhou] = useState(null);
   return (
     <div
       className={`rounded-full flex items-center justify-center font-extrabold shrink-0 overflow-hidden ${className}`}
       style={{ background: "var(--color-primary)", color: "var(--color-text-on-primary)" }}
     >
-      {avatarUrl ? (
-        <img src={avatarUrl} alt="" className="w-full h-full object-cover" />
+      {avatarUrl && falhou !== avatarUrl ? (
+        <img src={urlDaApi(avatarUrl)} alt="" className="w-full h-full object-cover" onError={() => setFalhou(avatarUrl)} />
       ) : (
         (nome || "?").charAt(0).toUpperCase()
       )}

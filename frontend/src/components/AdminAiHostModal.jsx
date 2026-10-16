@@ -1,51 +1,96 @@
+/**
+ * AdminAiHostModal.jsx — Painel do administrador da IA
+ *
+ * Escolhe em qual servidor Ollama o FinBot roda (PC, Notebook ou outro endereço).
+ * A escolha é global: vale para todos os usuários da aplicação e fica salva no banco.
+ *
+ * Por isso o painel é protegido por senha. A senha é conferida no backend em cada
+ * operação (entrar, testar, salvar) e fica só na memória enquanto a janela está aberta.
+ */
+
 import { useState, useEffect } from "react";
-import { Server, CheckCircle2, AlertCircle, RefreshCw, X, Laptop, Monitor } from "lucide-react";
+import { Server, CheckCircle2, AlertCircle, RefreshCw, X, Laptop, Monitor, Globe, Lock, Users } from "lucide-react";
 import { api } from "../api";
+import { toast } from "../motion";
+
+const HOSTS = [
+  {
+    id: "pc",
+    label: "PC (Tailscale / Remoto)",
+    description: "Conecta ao Ollama rodando no PC via rede Tailscale.",
+    icon: Monitor,
+    placeholder: "http://100.83.132.45:11434",
+  },
+  {
+    id: "notebook",
+    label: "Notebook (Localhost)",
+    description: "Roda o modelo Ollama no próprio Notebook.",
+    icon: Laptop,
+    placeholder: "http://localhost:11434",
+  },
+  {
+    id: "custom",
+    label: "Outro IP / Servidor Personalizado",
+    description: "Qualquer outro servidor Ollama acessível pelo backend.",
+    icon: Globe,
+    placeholder: "http://192.168.1.100:11434",
+  },
+];
 
 export default function AdminAiHostModal({ isOpen, onClose, onConfigUpdated }) {
-  const [activeHostMode, setActiveHostMode] = useState("pc");
-  const [pcUrl, setPcUrl] = useState("http://100.83.132.45:11434");
-  const [notebookUrl, setNotebookUrl] = useState("http://localhost:11434");
-  const [customUrl, setCustomUrl] = useState("http://localhost:11434");
+  const [password, setPassword] = useState("");
+  const [unlocked, setUnlocked] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
+  const [authError, setAuthError] = useState("");
 
-  const [loading, setLoading] = useState(true);
+  const [activeHostMode, setActiveHostMode] = useState("pc");
+  const [urls, setUrls] = useState({ pc: "", notebook: "", custom: "" });
+
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [statusResult, setStatusResult] = useState(null);
   const [message, setMessage] = useState("");
 
+  // Sempre que a janela fecha, a senha é esquecida
   useEffect(() => {
-    if (isOpen) {
-      loadConfig();
+    if (!isOpen) {
+      setPassword("");
+      setUnlocked(false);
+      setAuthError("");
+      setStatusResult(null);
+      setMessage("");
     }
   }, [isOpen]);
 
-  async function loadConfig() {
-    setLoading(true);
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
+  async function handleUnlock(e) {
+    e.preventDefault();
+    setUnlocking(true);
+    setAuthError("");
     try {
-      const cfg = await api.get("/api/finbot/config");
+      const cfg = await api.post("/api/finbot/admin/login", { password });
       setActiveHostMode(cfg.activeHostMode || "pc");
-      if (cfg.pcUrl) setPcUrl(cfg.pcUrl);
-      if (cfg.notebookUrl) setNotebookUrl(cfg.notebookUrl);
-      if (cfg.customUrl) setCustomUrl(cfg.customUrl);
+      setUrls({ pc: cfg.pcUrl || "", notebook: cfg.notebookUrl || "", custom: cfg.customUrl || "" });
+      setUnlocked(true);
     } catch (err) {
-      console.error("Erro ao carregar configuração de IA:", err);
+      setAuthError(err.message || "Não foi possível entrar.");
     } finally {
-      setLoading(false);
+      setUnlocking(false);
     }
   }
 
+  // Testa o endereço selecionado sem trocar o servidor em uso pelos outros usuários
   async function handleTestConnection() {
     setTesting(true);
     setStatusResult(null);
     try {
-      await api.post("/api/finbot/config", {
-        activeHostMode,
-        pcUrl,
-        notebookUrl,
-        customUrl,
-      });
-      const res = await api.get("/api/finbot/status");
+      const res = await api.post("/api/finbot/admin/test", { password, activeHostMode, url: urls[activeHostMode] });
       setStatusResult(res);
     } catch (err) {
       setStatusResult({ online: false, message: "Erro ao testar conexão: " + err.message });
@@ -59,17 +104,15 @@ export default function AdminAiHostModal({ isOpen, onClose, onConfigUpdated }) {
     setMessage("");
     try {
       const updated = await api.post("/api/finbot/config", {
+        password,
         activeHostMode,
-        pcUrl,
-        notebookUrl,
-        customUrl,
+        pcUrl: urls.pc,
+        notebookUrl: urls.notebook,
+        customUrl: urls.custom,
       });
-      setMessage("Configuração salva com sucesso!");
       if (onConfigUpdated) onConfigUpdated(updated);
-      setTimeout(() => {
-        setMessage("");
-        onClose();
-      }, 1000);
+      toast("Servidor da IA atualizado para todos os usuários.");
+      onClose();
     } catch (err) {
       setMessage("Erro ao salvar: " + err.message);
     } finally {
@@ -80,156 +123,139 @@ export default function AdminAiHostModal({ isOpen, onClose, onConfigUpdated }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in">
-      <div className="bg-white dark:bg-[#111d2e] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full max-w-lg overflow-hidden animate-scale-in">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in"
+      onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Painel Admin — Servidor da IA"
+        className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg max-h-[92dvh] flex flex-col overflow-hidden animate-scale-in"
+      >
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700/50 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+        <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center gap-3 bg-slate-50 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
               <Server className="w-4 h-4" />
             </div>
-            <div>
-              <h2 className="text-sm font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
+            <div className="min-w-0">
+              <h2 className="text-sm font-extrabold text-slate-800 flex flex-wrap items-center gap-x-2">
                 Painel Admin — Servidor da IA
-                <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded-full">
-                  ADMIN
-                </span>
+                <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">ADMIN</span>
               </h2>
-              <p className="text-[11px] text-slate-400 font-medium">
-                Escolha onde a IA Ollama está rodando
+              <p className="text-[11px] text-slate-500 font-medium flex items-center gap-1">
+                <Users className="w-3 h-3 shrink-0" />
+                A escolha vale para todos os usuários do EduFinance
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition p-1 rounded-lg hover:bg-slate-200/50 dark:hover:bg-slate-700"
+            aria-label="Fechar"
+            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="p-6 space-y-5 text-xs">
-          {loading ? (
-            <div className="py-8 text-center text-slate-400 font-semibold animate-pulse">
-              Carregando configurações de IA...
+        {!unlocked ? (
+          /* ── Etapa 1: senha do administrador ── */
+          <form onSubmit={handleUnlock} className="p-5 space-y-4">
+            <div className="flex flex-col items-center text-center gap-2 py-2">
+              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
+                <Lock className="w-5 h-5 text-slate-500" />
+              </div>
+              <p className="text-sm font-bold text-slate-800">Área restrita ao administrador</p>
+              <p className="text-xs text-slate-500 max-w-xs">
+                Digite a senha de administrador para trocar o servidor onde a IA roda.
+              </p>
             </div>
-          ) : (
-            <>
-              {/* Opção 1: PC (Tailscale / Remoto) */}
-              <label
-                onClick={() => setActiveHostMode("pc")}
-                className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition ${
-                  activeHostMode === "pc"
-                    ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 dark:border-indigo-500 ring-2 ring-indigo-500/20"
-                    : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="hostMode"
-                  checked={activeHostMode === "pc"}
-                  onChange={() => setActiveHostMode("pc")}
-                  className="mt-1 text-indigo-600 focus:ring-indigo-500"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-slate-800 dark:text-white flex items-center gap-1.5 text-xs">
-                      <Monitor className="w-4 h-4 text-indigo-500" /> PC (Tailscale / Remoto)
-                    </span>
-                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400">Tailscale / Remoto</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Conecta ao Ollama rodando no PC via rede Tailscale.
-                  </p>
-                  <input
-                    type="text"
-                    value={pcUrl}
-                    onChange={(e) => setPcUrl(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-2 w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-200 font-mono"
-                    placeholder="http://100.83.132.45:11434"
-                  />
-                </div>
+            <div>
+              <label htmlFor="admin-ia-senha" className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                Senha de administrador
               </label>
-
-              {/* Opção 2: Notebook (Local) */}
-              <label
-                onClick={() => setActiveHostMode("notebook")}
-                className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition ${
-                  activeHostMode === "notebook"
-                    ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 dark:border-indigo-500 ring-2 ring-indigo-500/20"
-                    : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                }`}
+              <input
+                id="admin-ia-senha"
+                type="password"
+                autoFocus
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={`w-full px-3 py-2 border rounded-sm focus:outline-none text-sm font-semibold bg-white ${authError ? "border-red-500 mi-shake" : "border-slate-200"}`}
+              />
+              {authError && (
+                <p role="alert" className="text-xs font-bold text-red-700 mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  {authError}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-3.5 py-2 rounded-sm text-xs font-bold text-slate-500 hover:text-slate-700 transition"
               >
-                <input
-                  type="radio"
-                  name="hostMode"
-                  checked={activeHostMode === "notebook"}
-                  onChange={() => setActiveHostMode("notebook")}
-                  className="mt-1 text-indigo-600 focus:ring-indigo-500"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-slate-800 dark:text-white flex items-center gap-1.5 text-xs">
-                      <Laptop className="w-4 h-4 text-emerald-500" /> Notebook (Localhost)
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">Local</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                    Roda o modelo Ollama no próprio Notebook.
-                  </p>
-                  <input
-                    type="text"
-                    value={notebookUrl}
-                    onChange={(e) => setNotebookUrl(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-2 w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-200 font-mono"
-                    placeholder="http://localhost:11434"
-                  />
-                </div>
-              </label>
-
-              {/* Opção 3: Personalizado */}
-              <label
-                onClick={() => setActiveHostMode("custom")}
-                className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer transition ${
-                  activeHostMode === "custom"
-                    ? "border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20 dark:border-indigo-500 ring-2 ring-indigo-500/20"
-                    : "border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                }`}
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={unlocking || !password}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-sm text-xs font-bold transition shadow-sm disabled:opacity-50"
               >
-                <input
-                  type="radio"
-                  name="hostMode"
-                  checked={activeHostMode === "custom"}
-                  onChange={() => setActiveHostMode("custom")}
-                  className="mt-1 text-indigo-600 focus:ring-indigo-500"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-slate-800 dark:text-white flex items-center gap-1.5 text-xs">
-                      🌐 Outro IP / Servidor Personalizado
-                    </span>
-                  </div>
-                  <input
-                    type="text"
-                    value={customUrl}
-                    onChange={(e) => setCustomUrl(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-2 w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-700 dark:text-slate-200 font-mono"
-                    placeholder="http://192.168.1.100:11434"
-                  />
-                </div>
-              </label>
+                {unlocking ? "Verificando..." : "Entrar"}
+              </button>
+            </div>
+          </form>
+        ) : (
+          /* ── Etapa 2: escolha do servidor ── */
+          <>
+            <div className="p-5 space-y-3 text-xs overflow-y-auto flex-1 min-h-0">
+              {HOSTS.map((host) => {
+                const Icon = host.icon;
+                const active = activeHostMode === host.id;
+                return (
+                  <label
+                    key={host.id}
+                    className={`flex items-start gap-3 p-4 rounded-lg border-2 cursor-pointer transition ${
+                      active ? "border-indigo-500 bg-indigo-50" : "border-slate-200 hover:border-slate-300"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="hostMode"
+                      checked={active}
+                      onChange={() => { setActiveHostMode(host.id); setStatusResult(null); }}
+                      className="mt-1"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-extrabold text-slate-800 flex items-center gap-1.5 text-xs">
+                        <Icon className="w-4 h-4 text-indigo-500 shrink-0" /> {host.label}
+                      </span>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{host.description}</p>
+                      <input
+                        type="text"
+                        value={urls[host.id]}
+                        onChange={(e) => setUrls((prev) => ({ ...prev, [host.id]: e.target.value }))}
+                        aria-label={`Endereço: ${host.label}`}
+                        className="mt-2 w-full px-3 py-1.5 bg-white border border-slate-200 rounded-sm text-xs text-slate-700 font-mono"
+                        placeholder={host.placeholder}
+                      />
+                    </div>
+                  </label>
+                );
+              })}
 
               {/* Status Connection Box */}
               {statusResult && (
                 <div
-                  className={`p-3 rounded-xl flex items-center gap-2.5 font-semibold text-xs border ${
+                  role="status"
+                  className={`p-3 rounded-lg flex items-center gap-2.5 font-semibold text-xs border mi-pop ${
                     statusResult.online
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
-                      : "bg-red-50 text-red-800 border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800"
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                      : "bg-red-50 text-red-800 border-red-200"
                   }`}
                 >
                   {statusResult.online ? (
@@ -237,49 +263,49 @@ export default function AdminAiHostModal({ isOpen, onClose, onConfigUpdated }) {
                   ) : (
                     <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                   )}
-                  <span>{statusResult.message}</span>
+                  <span className="min-w-0 break-words">{statusResult.message}</span>
                 </div>
               )}
 
               {message && (
-                <div className="p-3 bg-blue-50 text-blue-800 border border-blue-200 rounded-xl text-xs text-center font-bold">
+                <div role="alert" className="p-3 bg-red-50 text-red-800 border border-red-200 rounded-lg text-xs text-center font-bold">
                   {message}
                 </div>
               )}
-            </>
-          )}
-        </div>
+            </div>
 
-        {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
-          <button
-            type="button"
-            onClick={handleTestConnection}
-            disabled={testing || loading}
-            className="px-3.5 py-2 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 transition flex items-center gap-1.5 disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${testing ? "animate-spin" : ""}`} />
-            {testing ? "Testando..." : "Testar Conexão"}
-          </button>
+            {/* Modal Footer */}
+            <div className="px-5 py-4 border-t border-slate-100 bg-slate-50 flex flex-wrap justify-between items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={handleTestConnection}
+                disabled={testing}
+                className="px-3.5 py-2 bg-white border border-slate-200 rounded-sm text-xs font-bold text-slate-700 hover:border-slate-300 transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${testing ? "animate-spin" : ""}`} />
+                {testing ? "Testando..." : "Testar Conexão"}
+              </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-700 transition"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={saving || loading}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
-            >
-              {saving ? "Salvando..." : "Salvar Alterações"}
-            </button>
-          </div>
-        </div>
+              <div className="flex items-center gap-2 ml-auto">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-3.5 py-2 rounded-sm text-xs font-bold text-slate-500 hover:text-slate-700 transition"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-sm text-xs font-bold transition shadow-sm disabled:opacity-50"
+                >
+                  {saving ? "Salvando..." : "Salvar para todos"}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

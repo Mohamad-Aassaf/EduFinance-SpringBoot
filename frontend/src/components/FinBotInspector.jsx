@@ -272,7 +272,7 @@ export default function FinBotInspector() {
         }}
         title={isInspecting ? "Cancelar inspecção (ESC)" : "Pergunte ao FinBot sobre qualquer elemento"}
         className={`
-          fixed bottom-6 right-6 z-[9998]
+          fixed bottom-6 right-6 ${isInspecting ? "z-[9998]" : "z-40"}
           w-14 h-14 rounded-full shadow-2xl
           flex items-center justify-center
           transition-all duration-200 active:scale-95

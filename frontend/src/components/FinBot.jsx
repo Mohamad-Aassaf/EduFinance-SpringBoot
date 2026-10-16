@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User, Sparkles, ChevronDown, Plus, Trash2, Clock, X, MessageSquare, Server } from "lucide-react";
+import { Send, Bot, User, Sparkles, ChevronDown, Plus, Trash2, Clock, X, MessageSquare, Server, Lock, Globe, FileText } from "lucide-react";
 import { api } from "../api";
 import AdminAiHostModal from "./AdminAiHostModal";
 
@@ -20,17 +20,131 @@ function BotMessage({ content }) {
 
   return (
     <div
-      className="bot-message text-xs leading-relaxed text-slate-700"
+      className="bot-message text-sm md:text-xs leading-relaxed text-slate-700"
       dangerouslySetInnerHTML={{ __html: `<p>${html}</p>` }}
     />
   );
 }
 
-// ─── Typing Indicator ──────────────────────────────────────────────────────
-function TypingIndicator({ model }) {
+// ─── Modos de conhecimento ──────────────────────────────────────────────────
+// Fechado: responde só com a base própria (aulas + arquivos da pasta base-conhecimento)
+// Aberto:  o backend busca na web e entrega os resultados ao modelo
+const MODES = [
+  {
+    id: "closed",
+    label: "Fechado",
+    icon: Lock,
+    hint: "Responde só com a base do EduFinance (aulas e documentos).",
+    loading: "Consultando a base",
+  },
+  {
+    id: "open",
+    label: "Aberto",
+    icon: Globe,
+    hint: "Busca na web antes de responder. Sua pergunta é enviada a um buscador.",
+    loading: "Buscando na web",
+  },
+];
+
+function ModeToggle({ mode, onChange, disabled }) {
+  const current = MODES.find((m) => m.id === mode) || MODES[0];
   return (
-    <div className="flex gap-3 animate-fade-in">
-      <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-200">
+    <div
+      className="flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-1 mb-2"
+      data-finbot-context="Modo de conhecimento do Professor FinBot. Fechado: a IA responde apenas com a base própria do EduFinance (aulas da trilha e documentos PDF/texto). Aberto: a IA busca informações atuais na web antes de responder e mostra as fontes."
+    >
+      <div className="flex self-start bg-slate-100 p-0.5 rounded-sm shrink-0" role="radiogroup" aria-label="Modo de conhecimento">
+        {MODES.map((m) => {
+          const Icon = m.icon;
+          const active = m.id === mode;
+          return (
+            <button
+              key={m.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              disabled={disabled}
+              onClick={() => onChange(m.id)}
+              title={m.hint}
+              className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-1 rounded-sm text-xs sm:text-[11px] font-bold transition disabled:opacity-60 ${active
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+                }`}
+            >
+              <Icon className="w-3 h-3" />
+              {m.label}
+            </button>
+          );
+        })}
+      </div>
+      <span className="text-[10px] text-slate-400 font-medium min-w-0">{current.hint}</span>
+    </div>
+  );
+}
+
+// ─── Fontes usadas na resposta ──────────────────────────────────────────────
+// Vêm como lista na resposta do chat e como texto JSON nas mensagens do histórico
+function parseSources(sources) {
+  if (Array.isArray(sources)) return sources;
+  if (!sources) return [];
+  try {
+    return JSON.parse(sources);
+  } catch {
+    return [];
+  }
+}
+
+function hostname(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function MessageSources({ mode, sources }) {
+  if (sources.length === 0) return null;
+  const Icon = mode === "open" ? Globe : Lock;
+  const chipCls =
+    "inline-flex items-center gap-1 max-w-full px-2 py-0.5 rounded-full bg-slate-50 border border-slate-100 text-[10px] font-semibold text-slate-600";
+  return (
+    <div className="mt-3 pt-2 border-t border-slate-100">
+      <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+        <Icon className="w-3 h-3" />
+        {mode === "open" ? "Fontes da web" : "Base do EduFinance"}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {sources.map((s, idx) =>
+          s.url ? (
+            <a
+              key={idx}
+              href={s.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={s.title}
+              className={`${chipCls} hover:border-indigo-200 hover:text-indigo-700 transition`}
+            >
+              <span className="text-slate-400">[{idx + 1}]</span>
+              <span className="truncate">{hostname(s.url)}</span>
+            </a>
+          ) : (
+            <span key={idx} className={chipCls} title={s.title}>
+              <FileText className="w-3 h-3 shrink-0 text-slate-400" />
+              <span className="truncate">{s.title}</span>
+            </span>
+          )
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Typing Indicator ──────────────────────────────────────────────────────
+function TypingIndicator({ model, mode }) {
+  const label = MODES.find((m) => m.id === mode)?.loading;
+  return (
+    <div className="flex gap-2 md:gap-3 animate-fade-in">
+      <div className="hidden sm:flex w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 items-center justify-center shrink-0 border border-indigo-200">
         <Bot className="w-4 h-4" />
       </div>
       <div className="bg-white border border-slate-100 px-4 py-3 rounded-sm rounded-bl-none shadow-sm flex items-center gap-2">
@@ -39,7 +153,7 @@ function TypingIndicator({ model }) {
           <div className="typing-dot"></div>
           <div className="typing-dot"></div>
         </div>
-        <span className="text-xs text-slate-400 font-medium ml-1">{model}</span>
+        <span className="text-xs text-slate-400 font-medium ml-1">{label ? `${label} · ${model}` : model}</span>
       </div>
     </div>
   );
@@ -66,10 +180,10 @@ function ModelSelector({ models, selectedModel, onSelect }) {
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-sm text-xs font-semibold text-slate-700 hover:border-blue-400 hover:text-blue-700 transition shadow-sm"
-        data-finbot-context="Seletor de modelo de IA do Professor FinBot. Permite escolher entre 3 modelos Ollama instalados localmente: llama3.2:1b (mais rápido), mistral:7b (melhor qualidade em português) e gemma4:12b (Google, máxima qualidade). Todos rodam no seu computador, sem enviar dados para a internet."
+        data-finbot-context="Seletor de modelo de IA do Professor FinBot. Permite escolher entre 3 modelos Ollama instalados localmente: llama3.2:1b (mais rápido), mistral:7b (melhor qualidade em português) e gemma4:12b (Google, máxima qualidade). Todos rodam localmente; só o modo Aberto envia a pergunta a um buscador da web."
       >
-        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        {current?.name || selectedModel}
+        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+        <span className="truncate max-w-[9rem] sm:max-w-none">{current?.name || selectedModel}</span>
         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
@@ -177,6 +291,10 @@ export default function FinBot() {
   const [isLoading, setIsLoading] = useState(false);
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("llama3.2:1b");
+  const [mode, setMode] = useState(() => {
+    const saved = localStorage.getItem("edufinance-finbot-mode");
+    return MODES.some((m) => m.id === saved) ? saved : "closed";
+  });
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
   // Histórico começa fechado no celular (lá ele abre como gaveta por cima do chat)
@@ -206,6 +324,10 @@ export default function FinBot() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  useEffect(() => {
+    localStorage.setItem("edufinance-finbot-mode", mode);
+  }, [mode]);
+
   async function loadModels() {
     try {
       const data = await api.get("/api/finbot/models");
@@ -234,7 +356,12 @@ export default function FinBot() {
   async function loadSessionMessages(sessionId) {
     try {
       const msgs = await api.get(`/api/finbot/history/${sessionId}/messages`);
-      setMessages(msgs.map((m) => ({ role: m.role, content: m.content })));
+      setMessages(msgs.map((m) => ({
+        role: m.role,
+        content: m.content,
+        mode: m.mode,
+        sources: parseSources(m.sources),
+      })));
       setActiveSessionId(sessionId);
     } catch (err) {
       console.error("Erro ao carregar mensagens:", err);
@@ -275,9 +402,13 @@ export default function FinBot() {
         sessionId: activeSessionId,
         model: selectedModel,
         message: trimmed,
+        mode,
       });
 
-      setMessages((prev) => [...prev, { role: "assistant", content: result.reply }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: result.reply, mode: result.mode, sources: parseSources(result.sources) },
+      ]);
 
       // Update active session
       if (!activeSessionId) {
@@ -293,7 +424,7 @@ export default function FinBot() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, activeSessionId, selectedModel]);
+  }, [isLoading, activeSessionId, selectedModel, mode]);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -326,18 +457,19 @@ export default function FinBot() {
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="bg-white border-b border-slate-100 px-3 md:px-6 py-3 md:py-4 flex items-center justify-between gap-2 shrink-0">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="bg-white border-b border-slate-100 px-3 md:px-6 py-2.5 md:py-4 flex items-center justify-between gap-2 shrink-0">
+          <div className="flex items-center gap-2 md:gap-3 min-w-0">
             <button
               onClick={() => setShowHistory((v) => !v)}
-              className="text-slate-400 hover:text-slate-600 transition"
+              className="w-9 h-9 -ml-1.5 rounded-full flex items-center justify-center shrink-0 text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition"
               title="Mostrar/Ocultar Histórico"
+              aria-label="Mostrar ou ocultar o histórico de conversas"
             >
               <MessageSquare className="w-4 h-4" />
             </button>
-            <div>
-              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <Bot className="w-4 h-4 text-indigo-500" />
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2 truncate">
+                <Bot className="w-4 h-4 text-indigo-500 shrink-0" />
                 Conversa
               </h2>
               <p className="hidden md:block text-xs text-slate-400 font-medium">
@@ -347,11 +479,11 @@ export default function FinBot() {
           </div>
 
           {/* Model Selector & Admin AI Host Button */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setShowAdminModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-sm text-xs font-bold transition shadow-sm"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-sm text-xs font-bold transition shadow-sm"
               title="Configurar Servidor IA (PC vs Notebook)"
             >
               <Server className="w-3.5 h-3.5 text-indigo-500" />
@@ -372,10 +504,10 @@ export default function FinBot() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-3 md:p-6 space-y-4">
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 md:p-6 space-y-4">
           {messages.length === 0 ? (
             /* Empty state */
-            <div className="flex flex-col items-center justify-center min-h-full text-center space-y-6 max-w-lg mx-auto py-6 md:py-16 animate-fade-in">
+            <div className="flex flex-col items-center justify-center min-h-full text-center space-y-6 max-w-lg mx-auto py-2 md:py-16 animate-fade-in">
               <div className="w-16 h-16 bg-indigo-50 rounded-sm flex items-center justify-center text-indigo-500 shadow-sm border border-indigo-100">
                 <Sparkles className="w-7 h-7" />
               </div>
@@ -401,22 +533,23 @@ export default function FinBot() {
             messages.map((m, idx) => {
               const isBot = m.role === "assistant";
               return (
-                <div key={idx} className={`flex gap-3 animate-fade-in ${!isBot ? "justify-end" : ""}`}>
+                <div key={idx} className={`flex gap-2 md:gap-3 animate-fade-in ${!isBot ? "justify-end" : ""}`}>
                   {isBot && (
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center shrink-0 border border-indigo-200">
+                    <div className="hidden sm:flex w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 items-center justify-center shrink-0 border border-indigo-200">
                       <Bot className="w-4 h-4" />
                     </div>
                   )}
                   <div
-                    className={`max-w-[78%] rounded-sm px-4 py-3 ${!isBot
-                      ? "bg-indigo-600 text-white text-xs font-semibold rounded-br-none shadow-sm"
+                    className={`min-w-0 max-w-[92%] sm:max-w-[78%] rounded-sm px-3.5 md:px-4 py-3 break-words ${!isBot
+                      ? "bg-indigo-600 text-white text-sm md:text-xs font-semibold rounded-br-none shadow-sm"
                       : "bg-white border border-slate-100 rounded-bl-none shadow-sm"
                       }`}
                   >
                     {isBot ? <BotMessage content={m.content} /> : m.content}
+                    {isBot && <MessageSources mode={m.mode} sources={m.sources || []} />}
                   </div>
                   {!isBot && (
-                    <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200">
+                    <div className="hidden sm:flex w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 items-center justify-center shrink-0 border border-emerald-200">
                       <User className="w-4 h-4" />
                     </div>
                   )}
@@ -425,29 +558,31 @@ export default function FinBot() {
             })
           )}
 
-          {isLoading && <TypingIndicator model={selectedModel} />}
+          {isLoading && <TypingIndicator model={selectedModel} mode={mode} />}
           <div ref={chatEndRef} />
         </div>
 
         {/* Input */}
-        <div className="bg-white border-t border-slate-100 px-3 md:px-6 py-3 md:py-4 shrink-0">
+        <div className="bg-white border-t border-slate-100 px-3 md:px-6 py-3 md:py-4 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <ModeToggle mode={mode} onChange={setMode} disabled={isLoading} />
           <form
             onSubmit={(e) => { e.preventDefault(); handleSend(input); }}
             className="flex gap-2"
           >
             <input
               type="text"
-              placeholder="Pergunte sobre finanças, investimentos, ações..."
+              placeholder="Pergunte sobre finanças..."
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={isLoading}
-              className="flex-1 px-4 py-2.5 border border-slate-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-xs font-medium text-slate-800 placeholder:text-slate-400 bg-slate-50 transition"
+              className="flex-1 min-w-0 px-4 py-2.5 border border-slate-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 text-xs font-medium text-slate-800 placeholder:text-slate-400 bg-slate-50 transition"
             />
             <button
               type="submit"
               disabled={isLoading || !input.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white p-2.5 rounded-sm transition shadow-sm"
+              aria-label="Enviar mensagem"
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white px-3.5 rounded-sm transition shadow-sm shrink-0"
             >
               <Send className="w-4 h-4" />
             </button>

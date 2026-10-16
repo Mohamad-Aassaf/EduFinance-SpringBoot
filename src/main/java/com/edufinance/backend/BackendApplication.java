@@ -6,6 +6,7 @@ import com.edufinance.backend.model.Pergunta;
 import com.edufinance.backend.repository.LicaoRepository;
 import com.edufinance.backend.repository.PerfilRepository;
 import com.edufinance.backend.repository.PerguntaRepository;
+import com.edufinance.backend.service.TrilhaExtraSeeder;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -23,7 +24,8 @@ public class BackendApplication {
     public CommandLineRunner seedDatabase(
             PerfilRepository perfilRepository,
             LicaoRepository licaoRepository,
-            PerguntaRepository perguntaRepository) {
+            PerguntaRepository perguntaRepository,
+            TrilhaExtraSeeder trilhaExtraSeeder) {
 
         return args -> {
             if (licaoRepository.count() == 0) {
@@ -153,6 +155,9 @@ public class BackendApplication {
 
                 System.out.println("Database seeds inserted successfully!");
             }
+
+            // Aulas dos módulos Economia Global e Criptomoedas (só as que ainda não existem)
+            trilhaExtraSeeder.importar();
 
             if (perfilRepository.count() == 0) {
                 Perfil estudante1 = new Perfil(null, "Diego Pedro", "diego@edu.com", 240, 3, null, 125000.0,

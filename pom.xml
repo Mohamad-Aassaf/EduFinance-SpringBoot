@@ -63,6 +63,17 @@
 			<artifactId>News-API-Java</artifactId>
 			<version>1.0.2</version>
 		</dependency>
+		<!-- FinBot: leitura de PDFs da base de conhecimento e dos resultados da busca na web -->
+		<dependency>
+			<groupId>org.apache.pdfbox</groupId>
+			<artifactId>pdfbox</artifactId>
+			<version>3.0.3</version>
+		</dependency>
+		<dependency>
+			<groupId>org.jsoup</groupId>
+			<artifactId>jsoup</artifactId>
+			<version>1.18.1</version>
+		</dependency>
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>

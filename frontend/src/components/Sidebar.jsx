@@ -22,7 +22,7 @@
 
 import {
   BookOpen, Calculator, Trophy, User,
-  History, MessageSquare, LogOut, LayoutDashboard, LineChart, ShieldCheck
+  History, MessageSquare, LogOut, LayoutDashboard, LineChart, ShieldCheck, Newspaper
 } from "lucide-react";
 import { Avatar } from "./ui";
 
@@ -35,6 +35,7 @@ export const MENU_ITEMS = [
   { id: "simulador", label: "Simulador", icon: Calculator },
   { id: "mercado", label: "Mercado", icon: LineChart },
   { id: "carteira", label: "Carteira", icon: ShieldCheck },
+  { id: "noticias", label: "Notícias", icon: Newspaper },
   { id: "ranking", label: "Ranking", icon: Trophy },
   { id: "perfil", label: "Perfil", icon: User },
   { id: "historico", label: "Histórico", icon: History },
@@ -64,7 +65,7 @@ export default function Sidebar({ user, activeTab, setActiveTab, onLogout, expan
 
       <aside
         className={`
-          fixed md:static inset-y-0 left-0 z-40 h-screen shrink-0
+          fixed md:static inset-y-0 left-0 z-40 h-dvh shrink-0
           flex flex-col justify-between overflow-y-auto overflow-x-hidden
           transition-all duration-200
           ${mobileOpen ? "translate-x-0" : "-translate-x-full"} md:translate-x-0
