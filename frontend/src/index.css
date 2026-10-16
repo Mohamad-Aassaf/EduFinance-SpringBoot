@@ -899,18 +899,26 @@ html.no-motion *::after {
 }
 
 /* ── Boas-Vindas: encerramento da introdução e entrada na plataforma ── */
-@keyframes bvSaida {
+/* O conteúdo da introdução se recolhe e então a tela escura sobe como uma persiana,
+   com uma sombra na borda de baixo passando por cima do app */
+@keyframes bvConteudoSaida {
   to {
     opacity: 0;
-    transform: scale(1.06);
-    filter: blur(8px);
+    transform: translateY(-16px) scale(0.96);
+  }
+}
+
+@keyframes bvPersiana {
+  to {
+    transform: translateY(-100%);
   }
 }
 
 @keyframes bvEntrada {
   from {
     opacity: 0;
-    transform: translateY(18px) scale(0.985);
+    transform: translateY(32px) scale(0.98);
+    filter: blur(6px);
   }
 }
 
@@ -939,13 +947,17 @@ html.no-motion *::after {
   }
 }
 
-.bv-saida {
-  animation: bvSaida 750ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+.bv-conteudo-saida {
+  animation: bvConteudoSaida 380ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.bv-persiana {
+  animation: bvPersiana 1150ms cubic-bezier(0.76, 0, 0.24, 1) 350ms forwards;
 }
 
 .bv-entrada-app {
   /* backwards: depois de terminar não sobra transform, que prenderia os modais "fixed" da página */
-  animation: bvEntrada 800ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation: bvEntrada 1000ms cubic-bezier(0.2, 0.8, 0.2, 1) 250ms backwards;
 }
 
 .bv-check {

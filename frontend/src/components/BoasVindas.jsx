@@ -10,7 +10,8 @@
  * Pelo Perfil dá para rever tudo (revisao=true); quem já respondeu a pergunta pode pulá-la.
  *
  * O encerramento tem duas fases: "pronto" (check animado e barra de preparação) e
- * "saindo" (a tela some com zoom e desfoque, revelando o app, que entra deslizando).
+ * "saindo": o cartão se recolhe e a tela escura sobe como uma persiana, com uma sombra
+ * e um filete de luz na borda de baixo, enquanto o app aparece por trás deslizando.
  */
 
 import { useState } from "react";
@@ -187,8 +188,9 @@ export default function BoasVindas({ user, onConcluir, onSaindo, revisao = false
       await esperar(animado ? 1600 : 400);
     }
     setFase("saindo");
-    onSaindo?.();
-    await esperar(animado ? 750 : 0);
+    await esperar(animado ? 350 : 0); // cartão se recolhendo
+    onSaindo?.(); // o app começa a entrar enquanto a persiana sobe
+    await esperar(animado ? 1150 : 0);
     onConcluir(perfil);
   }
 
@@ -206,7 +208,7 @@ export default function BoasVindas({ user, onConcluir, onSaindo, revisao = false
 
   return (
     <div
-      className={`fixed inset-0 z-[60] overflow-hidden ${fase === "saindo" ? "bv-saida pointer-events-none" : ""}`}
+      className={`fixed inset-0 z-[60] ${fase === "saindo" ? "bv-persiana pointer-events-none" : ""}`}
       style={{ background: "var(--color-primary-dark)" }}
       role="dialog"
       aria-modal="true"
@@ -217,7 +219,26 @@ export default function BoasVindas({ user, onConcluir, onSaindo, revisao = false
 
       {avaliacao?.nota >= 7 && fase === "intro" && <Confetti />}
 
-      <div className="relative h-full overflow-y-auto">
+      {/* Borda da persiana: filete de luz e sombra projetada sobre o app enquanto ela sobe */}
+      {fase === "saindo" && (
+        <>
+          <div
+            aria-hidden="true"
+            className="absolute left-0 right-0 top-full h-40 pointer-events-none"
+            style={{ background: "linear-gradient(to bottom, color-mix(in srgb, var(--color-primary-dark) 60%, transparent), transparent)" }}
+          />
+          <div
+            aria-hidden="true"
+            className="absolute left-0 right-0 bottom-0 h-[3px] pointer-events-none"
+            style={{
+              background: "linear-gradient(90deg, transparent, var(--color-accent), transparent)",
+              boxShadow: "0 0 28px 4px var(--color-accent)",
+            }}
+          />
+        </>
+      )}
+
+      <div className={`relative h-full overflow-y-auto overflow-x-hidden ${fase === "saindo" ? "bv-conteudo-saida" : ""}`}>
       <div className="min-h-full flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-2xl space-y-5">
           {/* Logo, progresso e (ao rever pelo Perfil) o botão de fechar */}
