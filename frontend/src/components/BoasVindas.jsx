@@ -7,17 +7,25 @@
  * 3. A IA compara a resposta com uma resposta de referência e o FinBot dá o feedback
  *
  * Ao concluir, o backend marca boasVindasConcluidas e a apresentação não volta mais.
+ * Pelo Perfil dá para rever tudo (revisao=true); quem já respondeu a pergunta pode pulá-la.
+ *
+ * O encerramento tem duas fases: "pronto" (check animado e barra de preparação) e
+ * "saindo" (a tela some com zoom e desfoque, revelando o app, que entra deslizando).
  */
 
 import { useState } from "react";
 import {
   Bot, LayoutDashboard, BookOpen, MessageSquare, Calculator, LineChart, ShieldCheck,
   Newspaper, Trophy, User, History, GraduationCap, Wallet, Flame, ArrowRight, ArrowLeft,
-  CheckCircle2, AlertCircle, RotateCcw, Sparkles,
+  CheckCircle2, AlertCircle, RotateCcw, Sparkles, Check, X, SkipForward,
 } from "lucide-react";
 import { api } from "../api";
 import { Button } from "./ui";
 import { Confetti } from "./Feedback";
+import FundoMarca from "./FundoMarca";
+import { isMotionEnabled } from "../motion";
+
+const esperar = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const PERGUNTA = "O que é educação financeira?";
 
@@ -129,8 +137,9 @@ function NotaCircular({ nota }) {
   );
 }
 
-export default function BoasVindas({ user, onConcluir }) {
+export default function BoasVindas({ user, onConcluir, onSaindo, revisao = false }) {
   const [etapa, setEtapa] = useState(0);
+  const [fase, setFase] = useState("intro"); // "intro" | "pronto" | "saindo"
   const [resposta, setResposta] = useState("");
   const [avaliando, setAvaliando] = useState(false);
   const [avaliacao, setAvaliacao] = useState(null);
@@ -140,6 +149,8 @@ export default function BoasVindas({ user, onConcluir }) {
   const idEtapa = ETAPAS[etapa];
   const passo = APRESENTACAO.find((p) => p.id === idEtapa);
   const primeiroNome = user.nome.split(" ")[0];
+  // Ao refazer pelo Perfil, quem já respondeu a pergunta pode pulá-la
+  const podePularPergunta = revisao && user.perguntaIntroRespondida;
 
   const avancar = () => setEtapa((e) => Math.min(e + 1, ETAPAS.length - 1));
   const voltar = () => setEtapa((e) => Math.max(e - 1, 0));
@@ -168,12 +179,25 @@ export default function BoasVindas({ user, onConcluir }) {
     setEtapa(ETAPAS.indexOf("pergunta"));
   }
 
+  // Encerramento: celebra, some com zoom e desfoque e só então libera o app
+  async function sair(perfil, celebrar) {
+    const animado = isMotionEnabled();
+    if (celebrar) {
+      setFase("pronto");
+      await esperar(animado ? 1600 : 400);
+    }
+    setFase("saindo");
+    onSaindo?.();
+    await esperar(animado ? 750 : 0);
+    onConcluir(perfil);
+  }
+
   async function concluir() {
     setConcluindo(true);
     setErro("");
     try {
       const perfil = await api.post("/api/boas-vindas/concluir", {});
-      onConcluir(perfil);
+      sair(perfil, true);
     } catch (err) {
       setErro(err.message || "Não foi possível concluir. Tente de novo.");
       setConcluindo(false);
@@ -182,42 +206,76 @@ export default function BoasVindas({ user, onConcluir }) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] overflow-y-auto"
-      style={{
-        background:
-          "radial-gradient(circle at 15% 0%, color-mix(in srgb, var(--color-primary) 18%, transparent), transparent 55%), var(--color-bg)",
-      }}
+      className={`fixed inset-0 z-[60] overflow-hidden ${fase === "saindo" ? "bv-saida pointer-events-none" : ""}`}
+      style={{ background: "var(--color-primary-dark)" }}
       role="dialog"
       aria-modal="true"
       aria-label="Boas-vindas ao EduFinance"
     >
-      {avaliacao?.nota >= 7 && <Confetti />}
+      {/* Mesmo fundo do Login: brilhos da paleta, grade e gráfico subindo */}
+      <FundoMarca idGradiente="boas-vindas-area" />
 
+      {avaliacao?.nota >= 7 && fase === "intro" && <Confetti />}
+
+      <div className="relative h-full overflow-y-auto">
       <div className="min-h-full flex items-center justify-center px-4 py-8">
         <div className="w-full max-w-2xl space-y-5">
-          {/* Logo e progresso */}
-          <div className="flex items-center justify-between gap-4">
+          {/* Logo, progresso e (ao rever pelo Perfil) o botão de fechar */}
+          <div className="flex items-center justify-between gap-4 text-white">
             <p className="text-xl font-extrabold">
-              <span className="text-slate-800">Edu</span>
-              <span style={{ color: "var(--color-accent)" }}>Finance</span>
+              Edu<span style={{ color: "var(--color-accent)" }}>Finance</span>
             </p>
-            <div className="flex items-center gap-1.5" aria-label={`Etapa ${etapa + 1} de ${ETAPAS.length}`}>
-              {ETAPAS.map((id, i) => (
-                <span
-                  key={id}
-                  className="h-1.5 rounded-full transition-all duration-300"
-                  style={{
-                    width: i === etapa ? 24 : 8,
-                    background: i <= etapa ? "var(--color-primary)" : "color-mix(in srgb, var(--color-primary) 20%, transparent)",
-                  }}
-                />
-              ))}
+            <div className="flex items-center gap-4">
+              {fase === "intro" && (
+                <div className="flex items-center gap-1.5" aria-label={`Etapa ${etapa + 1} de ${ETAPAS.length}`}>
+                  {ETAPAS.map((id, i) => (
+                    <span
+                      key={id}
+                      className="h-1.5 rounded-full transition-all duration-300"
+                      style={{
+                        width: i === etapa ? 24 : 8,
+                        background: i <= etapa ? "var(--color-accent)" : "rgba(255, 255, 255, 0.25)",
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
+              {revisao && fase === "intro" && (
+                <button
+                  type="button"
+                  onClick={() => sair(user, false)}
+                  aria-label="Fechar a introdução"
+                  title="Fechar"
+                  className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 border border-white/20 hover:bg-white/20 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
 
-          <div className="bg-white rounded-sm shadow-xl border border-slate-100 p-5 md:p-7 space-y-5">
+          <div className="bg-white rounded-sm shadow-2xl border border-slate-100 p-5 md:p-7 space-y-5">
+            {/* ── Encerramento ── */}
+            {fase !== "intro" && (
+              <div className="py-10 flex flex-col items-center text-center gap-5 animate-fade-in" aria-live="polite">
+                <div
+                  className="bv-check w-20 h-20 rounded-full flex items-center justify-center shadow-lg"
+                  style={{ background: "var(--color-primary)", color: "var(--color-text-on-primary)" }}
+                >
+                  <Check className="w-10 h-10" strokeWidth={3} />
+                </div>
+                <div className="space-y-1.5">
+                  <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Tudo pronto, {primeiroNome}!</h2>
+                  <p className="text-sm text-slate-500 font-medium">Preparando a sua jornada no EduFinance...</p>
+                </div>
+                <div className="w-full max-w-xs h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                  <div className="bv-barra h-full rounded-full" style={{ background: "var(--color-primary)" }} />
+                </div>
+              </div>
+            )}
+
             {/* ── Apresentação ── */}
-            {passo && (
+            {fase === "intro" && passo && (
               <div key={passo.id} className="space-y-5 animate-fade-in">
                 <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">{passo.titulo}</h2>
                 <FalaDoFinBot>{passo.fala(primeiroNome)}</FalaDoFinBot>
@@ -274,16 +332,31 @@ export default function BoasVindas({ user, onConcluir }) {
                       Pular apresentação
                     </button>
                   )}
-                  <Button onClick={avancar} className="px-5 py-2.5">
-                    {idEtapa === "acompanhar" ? "Vamos lá" : "Próximo"}
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </Button>
+                  {idEtapa === "acompanhar" && podePularPergunta ? (
+                    <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-2">
+                      <Button variant="outline" icon={RotateCcw} onClick={avancar} disabled={concluindo}>
+                        Responder a pergunta de novo
+                      </Button>
+                      <Button onClick={concluir} disabled={concluindo} className="px-5 py-2.5">
+                        {concluindo ? "Concluindo..." : "Pular pergunta e concluir"}
+                        {!concluindo && <SkipForward className="w-3.5 h-3.5" />}
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button onClick={avancar} className="px-5 py-2.5">
+                      {idEtapa === "acompanhar" ? "Vamos lá" : "Próximo"}
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
                 </div>
+                {erro && idEtapa === "acompanhar" && (
+                  <p role="alert" className="text-xs font-bold text-red-600 bg-red-50 border border-red-100 rounded-sm p-2.5">{erro}</p>
+                )}
               </div>
             )}
 
             {/* ── Pergunta introdutória ── */}
-            {idEtapa === "pergunta" && (
+            {fase === "intro" && idEtapa === "pergunta" && (
               <form onSubmit={enviarResposta} className="space-y-5 animate-fade-in">
                 <h2 className="text-2xl md:text-3xl font-black text-slate-800 tracking-tight">Uma pergunta antes de começar</h2>
                 <FalaDoFinBot digitando={avaliando}>
@@ -316,7 +389,17 @@ export default function BoasVindas({ user, onConcluir }) {
 
                 <div className="flex items-center justify-between gap-3">
                   <Button variant="ghost" icon={ArrowLeft} onClick={voltar} disabled={avaliando}>Voltar</Button>
-                  <Button type="submit" disabled={avaliando} className="px-5 py-2.5">
+                  {podePularPergunta && !avaliando && (
+                    <button
+                      type="button"
+                      onClick={concluir}
+                      disabled={concluindo}
+                      className="text-xs font-bold text-slate-400 hover:text-slate-600 ml-auto"
+                    >
+                      Pular pergunta
+                    </button>
+                  )}
+                  <Button type="submit" disabled={avaliando || concluindo} className="px-5 py-2.5">
                     {avaliando ? "Avaliando..." : "Enviar resposta"}
                     {!avaliando && <Sparkles className="w-3.5 h-3.5" />}
                   </Button>
@@ -325,7 +408,7 @@ export default function BoasVindas({ user, onConcluir }) {
             )}
 
             {/* ── Feedback da IA ── */}
-            {idEtapa === "feedback" && avaliacao && (
+            {fase === "intro" && idEtapa === "feedback" && avaliacao && (
               <div className="space-y-5 animate-fade-in">
                 <div className="flex items-center gap-5">
                   {avaliacao.nota !== null && avaliacao.nota !== undefined && <NotaCircular nota={avaliacao.nota} />}
@@ -350,7 +433,7 @@ export default function BoasVindas({ user, onConcluir }) {
                 {(avaliacao.acertos || avaliacao.faltou) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {avaliacao.acertos && (
-                      <div className="rounded-sm border border-emerald-100 bg-emerald-50 p-3.5">
+                      <div className={`rounded-sm border border-emerald-100 bg-emerald-50 p-3.5 ${avaliacao.faltou ? "" : "sm:col-span-2"}`}>
                         <p className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
                           <CheckCircle2 className="w-3.5 h-3.5" /> O que você acertou
                         </p>
@@ -358,8 +441,10 @@ export default function BoasVindas({ user, onConcluir }) {
                       </div>
                     )}
                     {avaliacao.faltou && (
-                      <div className="rounded-sm border border-amber-100 bg-amber-50 p-3.5">
-                        <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
+                      <div
+                        className={`rounded-sm border border-amber-100 bg-amber-50 p-3.5 text-center flex flex-col justify-center ${avaliacao.acertos ? "" : "sm:col-span-2"}`}
+                      >
+                        <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-700 flex items-center justify-center gap-1.5">
                           <AlertCircle className="w-3.5 h-3.5" /> O que faltou
                         </p>
                         <p className="text-xs text-amber-900 font-medium mt-1.5 leading-relaxed">{avaliacao.faltou}</p>
@@ -392,6 +477,7 @@ export default function BoasVindas({ user, onConcluir }) {
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

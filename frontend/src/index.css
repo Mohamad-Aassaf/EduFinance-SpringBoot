@@ -897,3 +897,61 @@ html.no-motion *::after {
   transition-duration: 0.001ms !important;
   scroll-behavior: auto !important;
 }
+
+/* ── Boas-Vindas: encerramento da introdução e entrada na plataforma ── */
+@keyframes bvSaida {
+  to {
+    opacity: 0;
+    transform: scale(1.06);
+    filter: blur(8px);
+  }
+}
+
+@keyframes bvEntrada {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.985);
+  }
+}
+
+@keyframes bvCheck {
+  from {
+    opacity: 0;
+    transform: scale(0) rotate(-25deg);
+  }
+}
+
+@keyframes bvAnel {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-primary) 55%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 30px transparent;
+  }
+}
+
+@keyframes bvBarra {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.bv-saida {
+  animation: bvSaida 750ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.bv-entrada-app {
+  /* backwards: depois de terminar não sobra transform, que prenderia os modais "fixed" da página */
+  animation: bvEntrada 800ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.bv-check {
+  animation: bvCheck 650ms cubic-bezier(0.34, 1.56, 0.64, 1) both, bvAnel 1.4s ease-out 300ms infinite;
+}
+
+.bv-barra {
+  animation: bvBarra 1300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}

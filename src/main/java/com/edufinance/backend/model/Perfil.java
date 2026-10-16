@@ -62,6 +62,10 @@ public class Perfil {
     @Column(name = "boas_vindas_concluidas", columnDefinition = "boolean not null default true")
     private boolean boasVindasConcluidas = false;
 
+    // Se já respondeu a pergunta introdutória; ao refazer a introdução pelo Perfil, ela pode ser pulada
+    @Column(name = "pergunta_intro_respondida", columnDefinition = "boolean not null default false")
+    private boolean perguntaIntroRespondida = false;
+
     public Perfil() {
     }
 
@@ -194,6 +198,14 @@ public class Perfil {
 
     public void setBoasVindasConcluidas(boolean boasVindasConcluidas) {
         this.boasVindasConcluidas = boasVindasConcluidas;
+    }
+
+    public boolean isPerguntaIntroRespondida() {
+        return perguntaIntroRespondida;
+    }
+
+    public void setPerguntaIntroRespondida(boolean perguntaIntroRespondida) {
+        this.perguntaIntroRespondida = perguntaIntroRespondida;
     }
 
     public LocalDate getUltimoDiaAtivo() {

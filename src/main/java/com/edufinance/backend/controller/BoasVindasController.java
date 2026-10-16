@@ -31,7 +31,7 @@ public class BoasVindasController {
 
     @PostMapping("/avaliar")
     public Map<String, Object> avaliar(@RequestBody Map<String, String> request) {
-        usuarioAtual.exigir();
+        Perfil perfil = usuarioAtual.exigir();
         String resposta = request.getOrDefault("resposta", "").trim();
         if (resposta.length() < 10) {
             throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "Escreva pelo menos uma frase com as suas palavras.");
@@ -39,7 +39,12 @@ public class BoasVindasController {
         if (resposta.length() > 1500) {
             throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "A resposta pode ter no máximo 1500 caracteres.");
         }
-        return boasVindasService.avaliar(resposta);
+        Map<String, Object> avaliacao = boasVindasService.avaliar(resposta);
+        if (!perfil.isPerguntaIntroRespondida()) {
+            perfil.setPerguntaIntroRespondida(true);
+            perfilRepository.save(perfil);
+        }
+        return avaliacao;
     }
 
     @PostMapping("/concluir")
