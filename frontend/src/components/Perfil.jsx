@@ -30,7 +30,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Award, Zap, Trophy, Flame, Star, BookOpen, TrendingUp,
   Calendar, Shield, Sparkles, Crown, Pencil, Palette,
-  ChevronRight, CheckCircle, RefreshCw, X, Server, MapPin, Wallet, Wand2, Camera, Trash2
+  ChevronRight, CheckCircle, RefreshCw, X, Server, MapPin, Wallet, Wand2, Camera, Trash2, Bot
 } from "lucide-react";
 import { api } from "../api";
 import { LocalizacaoForm } from "./rankingShared";
@@ -260,7 +260,7 @@ const ALL_BADGES = [
 const formatarDias = (dias = 0) => `${dias} ${dias === 1 ? "dia" : "dias"}`;
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────
-export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange, palettes }) {
+export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange, palettes, onRefazerIntroducao }) {
   // Dados do perfil
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [medals, setMedals] = useState([]);
@@ -548,6 +548,29 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
           >
             <RefreshCw className="w-3 h-3" />
             Refazer Teste
+          </button>
+        </div>
+
+        {/* Rever a introdução do Professor FinBot */}
+        <div className="flex items-center justify-between gap-3 p-3 bg-slate-50 rounded-sm text-xs border border-slate-100">
+          <div className="flex items-center gap-2 font-bold text-slate-600 min-w-0">
+            <Bot className="w-4 h-4 shrink-0" style={{ color: "var(--color-primary)" }} />
+            <span>
+              Introdução da plataforma
+              <span className="block text-[10px] font-medium text-slate-400">
+                {user.perguntaIntroRespondida
+                  ? "Reveja a apresentação; a pergunta da IA pode ser pulada"
+                  : "Reveja a apresentação do Professor FinBot"}
+              </span>
+            </span>
+          </div>
+          <button
+            onClick={onRefazerIntroducao}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-bold text-white transition hover:opacity-90 shrink-0"
+            style={{ background: "var(--color-primary)" }}
+          >
+            <RefreshCw className="w-3 h-3" />
+            Refazer introdução
           </button>
         </div>
       </div>

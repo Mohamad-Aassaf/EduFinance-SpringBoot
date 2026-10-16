@@ -298,6 +298,20 @@ export default function App() {
   const handleLoginSuccess = (perfil) => { setUser(perfil); setActiveTab(convite ? "ranking" : "dashboard"); };
   const handleLogout = () => { localStorage.removeItem("token"); localStorage.removeItem("user"); setUser(null); };
   const handleUpdateUser = (updatedUser) => setUser(updatedUser);
+
+  // Introdução: aparece sozinha no primeiro acesso ou pelo botão "Refazer introdução" do Perfil
+  const [revendoIntro, setRevendoIntro] = useState(false);
+  // Muda ao sair da introdução, para o conteúdo do app entrar com animação
+  const [entradaApp, setEntradaApp] = useState(0);
+  // A entrada do app começa junto com a saída da introdução, para uma transição contínua
+  const handleIntroSaindo = () => {
+    if (!revendoIntro) setActiveTab("dashboard");
+    setEntradaApp((n) => n + 1);
+  };
+  const handleIntroConcluida = (perfil) => {
+    setUser(perfil);
+    setRevendoIntro(false);
+  };
   const toggleDarkMode = () => setDarkMode((prev) => !prev);
 
   if (checkingAuth) {
@@ -400,7 +414,10 @@ export default function App() {
               className={`flex-1 min-h-0 ${activeTab === "finbot" ? "overflow-hidden flex flex-col" : "overflow-y-auto"}`}
               style={{ background: "var(--color-bg)" }}
             >
-              <div className={`w-full max-w-[1440px] mx-auto ${activeTab === "finbot" ? "flex-1 min-h-0 flex flex-col" : ""}`}>
+              <div
+                key={entradaApp}
+                className={`w-full max-w-[1440px] mx-auto ${entradaApp > 0 ? "bv-entrada-app" : ""} ${activeTab === "finbot" ? "flex-1 min-h-0 flex flex-col" : ""}`}
+              >
                 {activeTab === "dashboard" && <Dashboard user={user} onTabChange={setActiveTab} />}
                 {activeTab === "trilha" && <Trilha user={user} onUpdateUser={handleUpdateUser} />}
                 {activeTab === "finbot" && (
@@ -426,6 +443,7 @@ export default function App() {
                     paletteId={paletteId}
                     onPaletteChange={setPaletteId}
                     palettes={PALETTES}
+                    onRefazerIntroducao={() => setRevendoIntro(true)}
                   />
                 )}
                 {activeTab === "historico" && <Historico user={user} />}
@@ -439,14 +457,8 @@ export default function App() {
           <Toaster />
 
           {/* Primeiro acesso: a apresentação cobre o app até a pessoa concluir */}
-          {user.boasVindasConcluidas === false && (
-            <BoasVindas
-              user={user}
-              onConcluir={(perfil) => {
-                setUser(perfil);
-                setActiveTab("dashboard");
-              }}
-            />
+          {(user.boasVindasConcluidas === false || revendoIntro) && (
+            <BoasVindas user={user} revisao={revendoIntro} onSaindo={handleIntroSaindo} onConcluir={handleIntroConcluida} />
           )}
 
           <AdminAiHostModal

@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS perfis (
     ofensiva_atual INTEGER NOT NULL DEFAULT 0, -- dias seguidos usando a plataforma
     maior_ofensiva INTEGER NOT NULL DEFAULT 0,
     ultimo_dia_ativo DATE,
-    boas_vindas_concluidas BOOLEAN NOT NULL DEFAULT TRUE -- false só em contas criadas pelo app, que ainda vão ver as Boas-Vindas
+    boas_vindas_concluidas BOOLEAN NOT NULL DEFAULT TRUE, -- false só em contas criadas pelo app, que ainda vão ver as Boas-Vindas
+    pergunta_intro_respondida BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 -- Fotos de perfil enviadas pelos usuários (o perfil guarda só o endereço em avatar_url)
