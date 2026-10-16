@@ -41,7 +41,7 @@ export default function SimuladorView({ user, onClose, onSimulationSuccess }) {
   const jurosRendidos = resultado ? resultado.valorFinal - totalInvestido : 0;
 
   return (
-    <div className="fixed inset-0 bg-slate-900 bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="fixed inset-0 bg-slate-900/50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-sm max-w-xl w-full p-6 relative shadow-2xl">
         <button
           onClick={onClose}
@@ -185,13 +185,13 @@ export default function SimuladorView({ user, onClose, onSimulationSuccess }) {
             <div className="flex gap-3 mt-6">
               <button
                 onClick={() => setResultado(null)}
-                className="w-1/2 bg-gray-250 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-sm transition"
+                className="w-1/2 bg-gray-200 hover:bg-gray-200 text-gray-700 font-bold py-2 rounded-sm transition"
               >
                 Nova Simulação
               </button>
               <button
                 onClick={onClose}
-                className="w-1/2 bg-indigo-650 hover:bg-indigo-700 text-white font-bold py-2 rounded-sm transition"
+                className="w-1/2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-sm transition"
               >
                 Salvar e Fechar
               </button>

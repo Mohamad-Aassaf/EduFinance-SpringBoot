@@ -33,16 +33,32 @@ public class FinBotController {
         return ResponseEntity.ok(finBotService.getAvailableModels());
     }
 
-    /** Returns current Admin AI Host Configuration (PC vs Notebook) */
+    /** Which AI host is active (visible to every user; URLs are admin-only) */
     @GetMapping("/config")
     public ResponseEntity<Map<String, Object>> getConfig() {
+        return ResponseEntity.ok(finBotService.getPublicConfig());
+    }
+
+    /** Admin: checks the password and returns the full AI host configuration */
+    @PostMapping("/admin/login")
+    public ResponseEntity<Map<String, Object>> adminLogin(@RequestBody Map<String, String> body) {
+        finBotService.exigirAdmin(body.get("password"));
         return ResponseEntity.ok(finBotService.getConfig());
     }
 
-    /** Updates Admin AI Host Configuration (PC vs Notebook) */
+    /** Admin: updates the AI host used by every user of the application */
     @PostMapping("/config")
     public ResponseEntity<Map<String, Object>> updateConfig(@RequestBody Map<String, String> body) {
+        finBotService.exigirAdmin(body.get("password"));
         return ResponseEntity.ok(finBotService.updateConfig(body));
+    }
+
+    /** Admin: tests an address without changing the configuration in use */
+    @PostMapping("/admin/test")
+    public ResponseEntity<Map<String, Object>> adminTest(@RequestBody Map<String, String> body) {
+        finBotService.exigirAdmin(body.get("password"));
+        String modo = body.getOrDefault("activeHostMode", "custom");
+        return ResponseEntity.ok(finBotService.testarServidor(body.get("url"), modo));
     }
 
     /** Test connection to the currently selected AI Host */
@@ -56,7 +72,8 @@ public class FinBotController {
      * {
      *   "sessionId": 123,          // optional — null = start new conversation
      *   "model":    "llama3.2:1b",
-     *   "message":  "O que é a taxa Selic?"
+     *   "message":  "O que é a taxa Selic?",
+     *   "mode":     "closed"       // optional — "closed" = base própria, "open" = busca na web
      * }
      */
     @PostMapping("/chat")
@@ -71,13 +88,20 @@ public class FinBotController {
                 : null;
         String model   = (String) body.get("model");
         String message = (String) body.get("message");
+        String mode    = (String) body.get("mode");
 
         if (message == null || message.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Mensagem não pode estar vazia."));
         }
 
-        Map<String, Object> result = finBotService.chat(userId, sessionId, model, message);
+        Map<String, Object> result = finBotService.chat(userId, sessionId, model, message, mode);
         return ResponseEntity.ok(result);
+    }
+
+    /** Lists the documents (lessons and files) used by the closed mode */
+    @GetMapping("/knowledge")
+    public ResponseEntity<List<Map<String, Object>>> getKnowledgeSources() {
+        return ResponseEntity.ok(finBotService.getKnowledgeSources());
     }
 
     /** List all chat sessions for the authenticated user */

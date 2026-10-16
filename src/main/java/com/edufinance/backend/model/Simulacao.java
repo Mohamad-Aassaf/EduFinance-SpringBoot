@@ -32,6 +32,14 @@ public class Simulacao {
     @Column(name = "valor_final", nullable = false)
     private double valorFinal;
 
+    // Preenchido só nas simulações do modo Meta: o valor que o usuário quer juntar
+    @Column(name = "valor_meta")
+    private Double valorMeta;
+
+    // Só no modo Meta: o que foi calculado. "aporte" (quanto investir por mês) ou "prazo" (em quanto tempo)
+    @Column(name = "calculo_meta", length = 10)
+    private String calculoMeta;
+
     @Column(name = "criado_em")
     private LocalDateTime criadoEm = LocalDateTime.now();
 
@@ -120,5 +128,21 @@ public class Simulacao {
 
     public void setCriadoEm(LocalDateTime criadoEm) {
         this.criadoEm = criadoEm;
+    }
+
+    public Double getValorMeta() {
+        return valorMeta;
+    }
+
+    public void setValorMeta(Double valorMeta) {
+        this.valorMeta = valorMeta;
+    }
+
+    public String getCalculoMeta() {
+        return calculoMeta;
+    }
+
+    public void setCalculoMeta(String calculoMeta) {
+        this.calculoMeta = calculoMeta;
     }
 }

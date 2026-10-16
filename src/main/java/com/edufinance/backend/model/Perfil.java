@@ -2,6 +2,7 @@ package com.edufinance.backend.model;
 
 import jakarta.persistence.*;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -43,6 +44,23 @@ public class Perfil {
 
     @Column(length = 80)
     private String cidade;
+
+    // Ofensiva: dias seguidos usando a plataforma (ver OfensivaService)
+    @Column(name = "ofensiva_atual", columnDefinition = "integer not null default 0")
+    private int ofensivaAtual = 0;
+
+    @Column(name = "maior_ofensiva", columnDefinition = "integer not null default 0")
+    private int maiorOfensiva = 0;
+
+    @Column(name = "ultimo_dia_ativo")
+    private LocalDate ultimoDiaAtivo;
+
+    /*
+     * Se o usuário já passou pelas Boas-Vindas (apresentação do FinBot + pergunta introdutória).
+     * Contas novas começam em false; o default true do banco faz quem já tinha conta não ver a apresentação.
+     */
+    @Column(name = "boas_vindas_concluidas", columnDefinition = "boolean not null default true")
+    private boolean boasVindasConcluidas = false;
 
     public Perfil() {
     }
@@ -152,5 +170,37 @@ public class Perfil {
 
     public void setCidade(String cidade) {
         this.cidade = cidade;
+    }
+
+    public int getOfensivaAtual() {
+        return ofensivaAtual;
+    }
+
+    public void setOfensivaAtual(int ofensivaAtual) {
+        this.ofensivaAtual = ofensivaAtual;
+    }
+
+    public int getMaiorOfensiva() {
+        return maiorOfensiva;
+    }
+
+    public void setMaiorOfensiva(int maiorOfensiva) {
+        this.maiorOfensiva = maiorOfensiva;
+    }
+
+    public boolean isBoasVindasConcluidas() {
+        return boasVindasConcluidas;
+    }
+
+    public void setBoasVindasConcluidas(boolean boasVindasConcluidas) {
+        this.boasVindasConcluidas = boasVindasConcluidas;
+    }
+
+    public LocalDate getUltimoDiaAtivo() {
+        return ultimoDiaAtivo;
+    }
+
+    public void setUltimoDiaAtivo(LocalDate ultimoDiaAtivo) {
+        this.ultimoDiaAtivo = ultimoDiaAtivo;
     }
 }

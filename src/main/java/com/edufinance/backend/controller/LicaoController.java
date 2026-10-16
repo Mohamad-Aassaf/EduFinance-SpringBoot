@@ -4,6 +4,7 @@ import com.edufinance.backend.model.Licao;
 import com.edufinance.backend.model.Perfil;
 import com.edufinance.backend.model.Medalha;
 import com.edufinance.backend.model.ProgressoUsuario;
+import com.edufinance.backend.service.OfensivaService;
 import com.edufinance.backend.repository.LicaoRepository;
 import com.edufinance.backend.repository.PerfilRepository;
 import com.edufinance.backend.repository.MedalhaRepository;
@@ -34,6 +35,9 @@ public class LicaoController {
 
     @Autowired
     private MedalhaRepository medalhaRepository;
+
+    @Autowired
+    private OfensivaService ofensivaService;
 
     // Retorna todas as lições cadastradas
     @GetMapping
@@ -88,10 +92,13 @@ public class LicaoController {
         }
 
         Licao licao = licaoOpt.get();
-        Perfil perfil = perfilOpt.get();
+        // Concluir uma aula também conta para a ofensiva (cobre quem deixa o app aberto de um dia para o outro)
+        Perfil perfil = ofensivaService.registrarAcesso(perfilOpt.get());
 
         // 1. Salva o progresso como concluído
         Optional<ProgressoUsuario> progressoOpt = progressoUsuarioRepository.findByUsuarioIdAndLicaoId(perfil.getId(), licao.getId());
+        // Refazer uma aula já concluída serve de revisão e não rende XP de novo
+        boolean primeiraConclusao = progressoOpt.isEmpty() || !progressoOpt.get().isConcluido();
         if (progressoOpt.isEmpty()) {
             ProgressoUsuario progresso = new ProgressoUsuario();
             progresso.setUsuarioId(perfil.getId());
@@ -108,12 +115,14 @@ public class LicaoController {
             }
         }
 
-        // 2. Adiciona 20 de XP
-        int xpGanho = 20;
-        int novoXp = perfil.getXp() + xpGanho;
-        perfil.setXp(novoXp);
-        perfil.setNivel((novoXp / 100) + 1); // 100 XP por nível
-        perfilRepository.save(perfil);
+        // 2. Adiciona 20 de XP na primeira conclusão
+        int xpGanho = primeiraConclusao ? 20 : 0;
+        if (primeiraConclusao) {
+            int novoXp = perfil.getXp() + xpGanho;
+            perfil.setXp(novoXp);
+            perfil.setNivel((novoXp / 100) + 1); // 100 XP por nível
+            perfilRepository.save(perfil);
+        }
 
         // 3. Libera medalhas dependendo do progresso
         List<String> medalhasDesbloqueadas = new ArrayList<>();

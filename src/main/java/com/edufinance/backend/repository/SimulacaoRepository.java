@@ -8,5 +8,6 @@ import java.util.List;
 @Repository
 public interface SimulacaoRepository extends JpaRepository<Simulacao, Long> {
     List<Simulacao> findByUsuarioId(Long usuarioId);
+    List<Simulacao> findByUsuarioIdOrderByCriadoEmDesc(Long usuarioId);
     List<Simulacao> findByUsuarioIdAndTipoInvestimento(Long usuarioId, String tipoInvestimento);
 }

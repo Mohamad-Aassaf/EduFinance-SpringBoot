@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
-import { Wallet, DollarSign, PieChart, TrendingUp, TrendingDown, ArrowDownUp } from "lucide-react";
+import { Wallet, DollarSign, PieChart, TrendingUp, TrendingDown, ArrowDownUp, Trash2 } from "lucide-react";
 import { api } from "../api";
 import ReactApexChart from "react-apexcharts";
+import { useDarkMode, chartTheme } from "../theme";
+import { toast } from "../motion";
+import { Button, Modal } from "./ui";
 
 const MOCK_PRICES = {
   DEMO3: 25.50,
@@ -19,6 +22,8 @@ export default function Carteira({ user, onUpdateUser }) {
   const [sellModal, setSellModal] = useState(null); // { stockCode, stockName, quantityOwned, price }
   const [sellQty, setSellQty] = useState(1);
   const [error, setError] = useState("");
+  const [txToRemove, setTxToRemove] = useState(null); // operação aguardando confirmação de remoção
+  const tema = chartTheme(useDarkMode());
 
   async function loadTransactions() {
     try {
@@ -69,6 +74,9 @@ export default function Carteira({ user, onUpdateUser }) {
     return Array.from(map.values());
   })();
 
+  // Operações removidas do histórico continuam valendo para as posições acima, só não são listadas
+  const historico = transactions.filter((tx) => !tx.hidden);
+
   // Estatísticas da Carteira
   const saldoDisponivel = user.saldoVirtual;
   const valorAcoes = holdings.reduce((sum, h) => {
@@ -114,10 +122,24 @@ export default function Carteira({ user, onUpdateUser }) {
       });
 
       onUpdateUser(response.perfil);
+      toast(`Venda de ${sellQty} ${sellModal.stockCode} realizada.`);
       setSellModal(null);
       loadTransactions();
     } catch (err) {
       setError(err.message || "Erro ao realizar venda.");
+    }
+  };
+
+  // Tira uma operação do histórico. Ela continua valendo para as posições e o saldo não muda.
+  const handleRemoveTransaction = async () => {
+    const tx = txToRemove;
+    setTxToRemove(null);
+    try {
+      await api.delete(`/api/portfolio/transacoes/${tx.id}`);
+      setTransactions((prev) => prev.map((t) => (t.id === tx.id ? { ...t, hidden: true } : t)));
+      toast("Operação removida do histórico.");
+    } catch (err) {
+      toast(err.message || "Não foi possível remover a operação.", "error");
     }
   };
 
@@ -131,16 +153,19 @@ export default function Carteira({ user, onUpdateUser }) {
   const optionsPie = {
     chart: {
       type: "donut",
+      background: "transparent",
       animations: { enabled: true, speed: 600 }
     },
     colors: COLORS,
     labels: labelsPie,
+    theme: { mode: tema.mode },
+    stroke: { colors: [tema.mode === "dark" ? "#1E2942" : "#ffffff"] },
     legend: {
       show: true,
       position: "bottom",
       fontSize: "10px",
       fontWeight: 700,
-      labels: { colors: "#475569" },
+      labels: { colors: tema.text },
       markers: { size: 4 }
     },
     plotOptions: {
@@ -160,7 +185,7 @@ export default function Carteira({ user, onUpdateUser }) {
               show: true,
               fontSize: "13px",
               fontWeight: 900,
-              color: "#1e293b",
+              color: tema.text,
               offsetY: 5,
               formatter: (val) => "R$ " + parseFloat(val).toLocaleString("pt-BR", { maximumFractionDigits: 0 })
             },
@@ -176,6 +201,7 @@ export default function Carteira({ user, onUpdateUser }) {
     },
     dataLabels: { enabled: false },
     tooltip: {
+      theme: tema.mode,
       y: {
         formatter: (val) => "R$ " + val.toLocaleString("pt-BR", { minimumFractionDigits: 2 })
       }
@@ -185,7 +211,7 @@ export default function Carteira({ user, onUpdateUser }) {
   if (loading) {
     return (
       <div className="flex-1 p-8 flex items-center justify-center">
-        <div className="text-gray-500 font-medium animate-pulse">Carregando carteira...</div>
+        <div className="text-slate-500 font-medium animate-pulse">Carregando carteira...</div>
       </div>
     );
   }
@@ -258,7 +284,7 @@ export default function Carteira({ user, onUpdateUser }) {
       {/* Grid Principal - Tabela de Ações e Gráfico */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Tabela de Ações */}
-        <div className="bg-white p-6 rounded-sm shadow-sm border border-slate-100 lg:col-span-2 space-y-4">
+        <div className="bg-white p-4 md:p-6 rounded-sm shadow-sm border border-slate-100 lg:col-span-2 space-y-4 min-w-0">
           <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">Minhas Ações</h3>
           {holdings.length === 0 ? (
             <p className="text-xs text-slate-400 italic text-center py-8">
@@ -266,7 +292,7 @@ export default function Carteira({ user, onUpdateUser }) {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
+              <table className="w-full min-w-[34rem] text-left border-collapse text-xs whitespace-nowrap">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 font-bold">
                     <th className="py-2.5">Ação</th>
@@ -301,7 +327,7 @@ export default function Carteira({ user, onUpdateUser }) {
                         <td className="py-3 text-right">
                           <button
                             onClick={() => handleSellClick(h)}
-                            className="bg-white border border-slate-200 hover:border-slate-300 text-slate-750 font-bold px-3 py-1.5 rounded-lg transition"
+                            className="bg-white border border-slate-200 hover:border-slate-300 text-slate-700 font-bold px-3 py-1.5 rounded-lg transition"
                           >
                             Vender
                           </button>
@@ -316,7 +342,7 @@ export default function Carteira({ user, onUpdateUser }) {
         </div>
 
         {/* Gráfico de Distribuição */}
-        <div className="bg-white p-6 rounded-sm shadow-sm border border-slate-100 space-y-4">
+        <div className="bg-white p-4 md:p-6 rounded-sm shadow-sm border border-slate-100 space-y-4 min-w-0">
           <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2">Distribuição</h3>
           {holdings.length === 0 ? (
             <p className="text-xs text-slate-400 italic text-center py-12">
@@ -325,6 +351,7 @@ export default function Carteira({ user, onUpdateUser }) {
           ) : (
             <div className="flex flex-col items-center justify-center min-h-[220px]">
               <ReactApexChart
+                key={tema.mode}
                 options={optionsPie}
                 series={seriesPie}
                 type="donut"
@@ -337,16 +364,16 @@ export default function Carteira({ user, onUpdateUser }) {
       </div>
 
       {/* Histórico de Operações */}
-      <div className="bg-white p-6 rounded-sm shadow-sm border border-slate-100 space-y-4">
+      <div className="bg-white p-4 md:p-6 rounded-sm shadow-sm border border-slate-100 space-y-4 min-w-0">
         <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
           <ArrowDownUp className="w-4 h-4 text-slate-400" />
           Histórico de Operações
         </h3>
-        {transactions.length === 0 ? (
-          <p className="text-xs text-slate-400 italic text-center py-4">Nenhuma operação realizada ainda.</p>
+        {historico.length === 0 ? (
+          <p className="text-xs text-slate-400 italic text-center py-4">Nenhuma operação no histórico.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+            <table className="w-full min-w-[34rem] text-left border-collapse text-xs whitespace-nowrap">
               <thead>
                 <tr className="border-b border-slate-100 text-slate-400 font-bold">
                   <th className="py-2.5">Data</th>
@@ -355,10 +382,11 @@ export default function Carteira({ user, onUpdateUser }) {
                   <th className="py-2.5 text-right">Qtd</th>
                   <th className="py-2.5 text-right">Preço</th>
                   <th className="py-2.5 text-right">Total</th>
+                  <th className="py-2.5 w-10" aria-label="Remover"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50 font-semibold text-slate-700">
-                {transactions.slice(0, 10).map((tx) => (
+                {historico.slice(0, 10).map((tx) => (
                   <tr key={tx.id} className="hover:bg-slate-50/50 transition">
                     <td className="py-3 font-medium text-slate-500">
                       {new Date(tx.createdAt).toLocaleDateString("pt-BR")}
@@ -375,6 +403,17 @@ export default function Carteira({ user, onUpdateUser }) {
                     <td className="py-3 text-right text-slate-900 font-extrabold">
                       R$ {tx.totalValue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </td>
+                    <td className="py-3 pl-2 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setTxToRemove(tx)}
+                        title="Remover do histórico"
+                        aria-label={`Remover do histórico a ${tx.transactionType === "buy" ? "compra" : "venda"} de ${tx.stockCode}`}
+                        className="w-8 h-8 rounded-full inline-flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -383,9 +422,24 @@ export default function Carteira({ user, onUpdateUser }) {
         )}
       </div>
 
+      {/* Confirmação de remoção de uma operação do histórico */}
+      {txToRemove && (
+        <Modal title="Remover do histórico?" onClose={() => setTxToRemove(null)}>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            A {txToRemove.transactionType === "buy" ? "compra" : "venda"} de{" "}
+            <strong>{txToRemove.quantity} {txToRemove.stockCode}</strong> deixa de aparecer no histórico.
+            Seu saldo virtual e suas ações não mudam.
+          </p>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="w-1/2" onClick={() => setTxToRemove(null)}>Cancelar</Button>
+            <Button variant="danger" icon={Trash2} className="w-1/2" onClick={handleRemoveTransaction}>Remover</Button>
+          </div>
+        </Modal>
+      )}
+
       {/* Modal de Confirmação de Venda */}
       {sellModal && (
-        <div className="fixed inset-0 bg-slate-950/40 bg-opacity-50 flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
+        <div className="fixed inset-0 bg-slate-950/40 flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
           <div className="bg-white rounded-sm max-w-sm w-full p-6 relative shadow-2xl border border-slate-100 space-y-4">
             <button
               onClick={() => setSellModal(null)}
@@ -417,7 +471,7 @@ export default function Carteira({ user, onUpdateUser }) {
               </div>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                   Quantidade a vender
                 </label>
                 <input
@@ -448,7 +502,7 @@ export default function Carteira({ user, onUpdateUser }) {
                 </button>
                 <button
                   type="submit"
-                  className="w-1/2 bg-red-650 hover:bg-red-700 text-white font-bold py-2 rounded-sm text-xs shadow-md transition"
+                  className="w-1/2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-sm text-xs shadow-md transition"
                 >
                   Confirmar Venda
                 </button>

@@ -28,6 +28,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: root
       # Dentro do container, localhost é o próprio container; o Ollama da máquina fica em host.docker.internal
       OLLAMA_NOTEBOOK_URL: http://host.docker.internal:11434
+    volumes:
+      # Documentos do modo fechado do FinBot; alterações na pasta valem sem reconstruir a imagem
+      - ./base-conhecimento:/app/base-conhecimento:ro
     depends_on:
       db:
         condition: service_healthy
@@ -38,8 +41,10 @@ services:
     build:
       context: ./frontend
       args:
-        # Para acesso pela rede local, defina VITE_API_URL com o IP da máquina (ex.: no .env)
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        # "/": o frontend chama a API na mesma origem e o nginx encaminha /api para o backend.
+        # Funciona em localhost, na rede local e por túnel (ngrok/Cloudflare) com um único link.
+        # Defina VITE_API_URL só se o backend estiver em outro endereço.
+        VITE_API_URL: ${VITE_API_URL:-/}
     depends_on:
       - backend
     ports:

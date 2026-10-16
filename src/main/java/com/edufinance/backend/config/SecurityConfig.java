@@ -34,6 +34,8 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
+                // Fotos de perfil abrem direto em <img>, que não envia o token
+                .requestMatchers(HttpMethod.GET, "/api/perfis/*/foto").permitAll()
                 .requestMatchers("/Claude").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/", "/index.html", "/static/**", "/assets/**", "*.ico", "*.js", "*.css").permitAll()

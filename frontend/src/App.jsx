@@ -14,6 +14,9 @@
  * 2. Dark Mode (já existia)
  *
  * 3. FinBot Inspector (botão flutuante global)
+ *
+ * 4. Boas-Vindas: no primeiro acesso, o FinBot apresenta a plataforma e faz a
+ *    pergunta introdutória antes de liberar o app (ver BoasVindas.jsx)
  */
 
 import { useState, useEffect } from "react";
@@ -25,11 +28,14 @@ import FinBot from "./components/FinBot";
 import Simulador from "./components/Simulador";
 import Mercado from "./components/Mercado";
 import Carteira from "./components/Carteira";
+import Noticias from "./components/Noticias";
 import Ranking from "./components/Ranking";
 import Perfil from "./components/Perfil";
 import Historico from "./components/Historico";
 import FinBotInspector from "./components/FinBotInspector";
 import AdminAiHostModal from "./components/AdminAiHostModal";
+import BoasVindas from "./components/BoasVindas";
+import { Toaster, AnimatedNumber } from "./components/Feedback";
 import { api } from "./api";
 import { Flame, Moon, Sun, Menu, Server } from "lucide-react";
 import { IconButton } from "./components/ui";
@@ -46,20 +52,23 @@ import { IconButton } from "./components/ui";
  * - textOnPrimary: cor do texto em botões principais (branco para azul, escuro para amarelo)
  * - preview:       array de 3 cores para o mini-swatch no seletor
  */
+const PALETTE_KEY = "edufinance-palette-v2";
+
 export const PALETTES = [
   {
     id: "original",
     name: "EduFinance Original",
     description: "Índigo clássico + esmeralda",
-    primary: "#3b82f6",   // indigo-600 — a cor antiga dos botões
+    // primary: "#3b82f6",   // indigo-600 — a cor antiga dos botões
+    primary: "#10b981",
     primaryDark: "#101f3f",   // indigo-900 — a cor antiga da sidebar
     accent: "#10b981",   // emerald-500 — a cor antiga de destaques
     textOnPrimary: "#FFFFFF",
-    preview: ["#3b82f6", "#101f3fs", "#10B981"],
+    preview: ["#3b82f6", "#101f3f", "#10B981"],
   },
   {
     id: "blue",
-    name: "EduFinance Atual",
+    name: "Azul Corporativo",
     description: "Azul corporativo + laranja",
     primary: "#2563EB",
     primaryDark: "#1E3A8A",
@@ -148,6 +157,7 @@ const PAGE_META = {
   simulador: { title: "Simulador", subtitle: () => "Faça projeções de juros compostos e compare diferentes modalidades." },
   mercado: { title: "Mercado", subtitle: () => "Explore ações e invista com seu saldo virtual." },
   carteira: { title: "Minha Carteira", subtitle: () => "Gerencie seus investimentos simulados." },
+  noticias: { title: "Notícias", subtitle: () => "Acompanhe o que está acontecendo na economia e no mercado." },
   ranking: { title: "Ranking", subtitle: () => "Acompanhe o progresso dos seus colegas e dispute o topo do ranking." },
   perfil: { title: "Perfil", subtitle: () => "Seus dados, conquistas e personalização." },
   historico: { title: "Histórico", subtitle: () => "Registro de operações de mercado e conversas com o Professor FinBot." },
@@ -246,10 +256,12 @@ export default function App() {
   // ── Paleta de Cores ────────────────────────────────────────────
   /*
    * Inicializa buscando o id salvo no localStorage.
-   * Se não encontrar, usa "blue" (paleta atual).
+   * Se não encontrar, usa "original" (EduFinance Original).
+   * A chave tem "-v2" porque a anterior era gravada em todo acesso, inclusive com o padrão antigo
+   * ("blue"); com a chave nova, todos passam pelo padrão novo uma vez.
    */
   const [paletteId, setPaletteId] = useState(() => {
-    return localStorage.getItem("edufinance-palette") || "blue";
+    return localStorage.getItem(PALETTE_KEY) || "original";
   });
 
   /*
@@ -259,9 +271,9 @@ export default function App() {
    * 3. Salva a escolha no localStorage
    */
   useEffect(() => {
-    const paleta = PALETTES.find((p) => p.id === paletteId) || PALETTES[1];
+    const paleta = PALETTES.find((p) => p.id === paletteId) || PALETTES[0];
     aplicarPaleta(paleta);
-    localStorage.setItem("edufinance-palette", paletteId);
+    localStorage.setItem(PALETTE_KEY, paletteId);
   }, [paletteId]);
 
   // ── Autenticação ───────────────────────────────────────────────
@@ -303,7 +315,7 @@ export default function App() {
   return (
     <>
       {user ? (
-        <div className="flex h-screen overflow-hidden" style={{ background: "var(--color-bg)" }}>
+        <div className="flex h-dvh overflow-hidden" style={{ background: "var(--color-bg)" }}>
 
           <Sidebar
             user={user}
@@ -317,27 +329,32 @@ export default function App() {
 
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {/* Cabeçalho: título da página à esquerda, indicadores e ações à direita */}
-            <header className="shrink-0 w-full max-w-[1440px] mx-auto px-4 md:px-8 pt-5 pb-4 flex flex-wrap items-start justify-between gap-x-8 gap-y-3">
+            <header className={`shrink-0 w-full max-w-[1440px] mx-auto px-4 md:px-8 pb-4 flex flex-wrap items-start justify-between gap-x-8 gap-y-3 ${activeTab === "finbot" ? "pt-3 md:pt-5 max-md:pb-2" : "pt-5"}`}>
               <div className="flex items-start gap-3 min-w-0">
-                <IconButton icon={Menu} label="Abrir ou recolher o menu" onClick={toggleSidebar} className="mt-1" />
+                <IconButton icon={Menu} label="Abrir ou recolher o menu" onClick={toggleSidebar} className={activeTab === "finbot" ? "md:mt-1" : "mt-1"} />
                 <div className="min-w-0">
-                  <h1 className="text-3xl lg:text-4xl font-extrabold text-slate-800 tracking-tight truncate">
+                  <h1 className={`lg:text-4xl font-extrabold text-slate-800 tracking-tight truncate ${activeTab === "finbot" ? "text-xl md:text-3xl max-md:leading-9" : "text-2xl sm:text-3xl"}`}>
                     {page.title}
                   </h1>
-                  <p className="text-sm text-slate-500 mt-1">{page.subtitle(user)}</p>
+                  <p className={`text-sm text-slate-500 mt-1 ${activeTab === "finbot" ? "hidden md:block" : ""}`}>{page.subtitle(user)}</p>
                 </div>
               </div>
 
               <div className="flex items-start gap-6 lg:gap-10 ml-auto">
                 <div className="hidden sm:flex items-start gap-6 lg:gap-10">
                   <HeaderStat
-                    value={user.xp.toLocaleString("pt-BR")}
+                    value={<AnimatedNumber value={user.xp} />}
                     pill={`Nível ${user.nivel}`}
                     label="XP total"
                     context={`XP (Pontos de Experiência) do usuário: ${user.xp} XP, nível ${user.nivel}. Você ganha XP ao concluir aulas, responder perguntas corretamente e fazer simulações. Acumule 100 XP para subir de nível!`}
                   />
                   <HeaderStat
-                    value={`R$ ${user.saldoVirtual.toLocaleString("pt-BR", { notation: "compact", maximumFractionDigits: 1 })}`}
+                    value={
+                      <AnimatedNumber
+                        value={user.saldoVirtual}
+                        format={(v) => `R$ ${v.toLocaleString("pt-BR", { notation: "compact", maximumFractionDigits: 1 })}`}
+                      />
+                    }
                     label="Saldo virtual"
                     context={`Saldo virtual do usuário: R$ ${user.saldoVirtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}. É o dinheiro fictício usado para comprar ações no Mercado e fazer simulações.`}
                   />
@@ -345,7 +362,8 @@ export default function App() {
 
                 <div className="flex items-center gap-2">
                   <div
-                    data-finbot-context="Ofensiva de dias: mostra quantos dias seguidos você usa a plataforma EduFinance. Manter uma ofensiva diária te ajuda a criar o hábito de estudar finanças e pode desbloquear conquistas especiais."
+                    data-finbot-context={`Ofensiva de dias: o usuário está há ${user.ofensivaAtual ?? 0} dia(s) seguidos usando a plataforma EduFinance (recorde: ${user.maiorOfensiva ?? 0}). Cada dia conta no primeiro acesso; pular um dia recomeça a contagem. Manter a ofensiva por 7 e 30 dias desbloqueia conquistas.`}
+                    title={`Ofensiva: ${user.ofensivaAtual ?? 0} dia(s) seguidos`}
                     className="flex items-center gap-1.5 px-3 h-9 rounded-full text-sm font-black border shadow-sm select-none cursor-default"
                     style={{
                       background: "color-mix(in srgb, var(--color-accent) 15%, transparent)",
@@ -354,16 +372,16 @@ export default function App() {
                     }}
                   >
                     <Flame className="w-4 h-4" style={{ fill: "var(--color-accent)", color: "var(--color-accent)" }} />
-                    <span>1</span>
+                    <span>{user.ofensivaAtual ?? 0}</span>
                   </div>
                   <button
                     onClick={() => setShowAdminAiModal(true)}
-                    title="Configuração Admin do Servidor da IA (PC vs Notebook)"
+                    title="Servidor da IA em uso por todos os usuários (alterar exige senha de administrador)"
                     className="flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 transition"
                   >
                     <Server className="w-3.5 h-3.5 text-indigo-500" />
                     <span className="hidden lg:inline">IA: {aiConfig?.activeHostMode === "pc" ? "PC" : aiConfig?.activeHostMode === "notebook" ? "Notebook" : "Custom"}</span>
-                    <span className="text-[9px] font-extrabold px-1.5 py-0.2 bg-amber-200 text-amber-900 rounded">
+                    <span className="hidden sm:inline text-[9px] font-extrabold px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded">
                       ADMIN
                     </span>
                   </button>
@@ -391,6 +409,7 @@ export default function App() {
                 {activeTab === "simulador" && <Simulador user={user} onUpdateUser={handleUpdateUser} />}
                 {activeTab === "mercado" && <Mercado user={user} onUpdateUser={handleUpdateUser} />}
                 {activeTab === "carteira" && <Carteira user={user} onUpdateUser={handleUpdateUser} />}
+                {activeTab === "noticias" && <Noticias />}
                 {activeTab === "ranking" && (
                   <Ranking
                     user={user}
@@ -414,7 +433,21 @@ export default function App() {
             </main>
           </div>
 
-          <FinBotInspector />
+          {/* No chat o botão flutuante cobriria o envio de mensagens; lá a pergunta é feita direto ao FinBot */}
+          {activeTab !== "finbot" && <FinBotInspector />}
+
+          <Toaster />
+
+          {/* Primeiro acesso: a apresentação cobre o app até a pessoa concluir */}
+          {user.boasVindasConcluidas === false && (
+            <BoasVindas
+              user={user}
+              onConcluir={(perfil) => {
+                setUser(perfil);
+                setActiveTab("dashboard");
+              }}
+            />
+          )}
 
           <AdminAiHostModal
             isOpen={showAdminAiModal}

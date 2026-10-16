@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Search, ArrowDownUp, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 import { api } from "../api";
 import ReactApexChart from "react-apexcharts";
+import { useDarkMode, chartTheme } from "../theme";
+import { toast } from "../motion";
 
 const INITIAL_STOCKS = [
   { symbol: "DEMO3", shortName: "Demonstração S/A", regularMarketPrice: 25.50, regularMarketChangePercent: 0.0, longName: "Demonstração S/A Corporativa" },
@@ -41,6 +43,7 @@ export default function Mercado({ user, onUpdateUser }) {
   const [tradeTab, setTradeTab] = useState("buy");
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const tema = chartTheme(useDarkMode());
 
   async function loadTransactions() {
     try {
@@ -131,6 +134,7 @@ export default function Mercado({ user, onUpdateUser }) {
 
       onUpdateUser(response.perfil);
       setSuccessMsg(`Operação de ${tradeTab === "buy" ? "compra" : "venda"} realizada com sucesso!`);
+      toast(`${tradeTab === "buy" ? "Compra" : "Venda"} de ${qty} ${selectedStock.symbol} realizada.`);
       loadTransactions();
       setTimeout(() => setSelectedStock(null), 1500);
     } catch (err) {
@@ -169,6 +173,7 @@ export default function Mercado({ user, onUpdateUser }) {
         },
       },
       tooltip: {
+        theme: tema.mode,
         fixed: { enabled: false },
         x: { show: false },
         y: {
@@ -193,7 +198,7 @@ export default function Mercado({ user, onUpdateUser }) {
           placeholder="Buscar ação por código ou nome..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-semibold text-slate-750 bg-white"
+          className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 text-sm font-semibold text-slate-700 bg-white"
         />
       </div>
         <div className="bg-white px-4 py-2 rounded-sm border border-slate-100 shadow-sm flex items-center gap-2 text-sm font-bold text-slate-700 whitespace-nowrap">
@@ -227,7 +232,7 @@ export default function Mercado({ user, onUpdateUser }) {
               key={stock.symbol}
               onClick={() => handleStockClick(stock)}
               data-finbot-context={contextoFinBot}
-              className="bg-white p-5 rounded-sm border border-slate-100 hover:border-blue-200 hover:shadow-md shadow-sm cursor-pointer transition-all duration-200 flex flex-col justify-between space-y-3"
+              className="mi-lift bg-white p-5 rounded-sm border border-slate-100 hover:border-blue-200 hover:shadow-md shadow-sm cursor-pointer flex flex-col justify-between space-y-3"
             >
               <div className="flex justify-between items-start">
                 <div>
@@ -296,7 +301,7 @@ export default function Mercado({ user, onUpdateUser }) {
         const isUp = selectedStock.regularMarketChangePercent >= 0;
 
         return (
-          <div className="fixed inset-0 bg-slate-950/40 bg-opacity-50 flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
+          <div className="fixed inset-0 bg-slate-950/40 flex items-center justify-center p-4 z-50 animate-[fadeIn_0.2s_ease-out]">
             <div className="bg-white rounded-sm max-w-sm w-full p-6 relative shadow-2xl border border-slate-100 space-y-4">
               <button
                 onClick={() => setSelectedStock(null)}
@@ -353,7 +358,7 @@ export default function Mercado({ user, onUpdateUser }) {
                   type="button"
                   onClick={() => { setTradeTab("buy"); setQty(1); setError(""); }}
                   className={`w-1/2 pb-2 text-xs font-bold text-center border-b-2 transition ${
-                    tradeTab === "buy" ? "border-indigo-600 text-indigo-650" : "border-transparent text-slate-400"
+                    tradeTab === "buy" ? "border-indigo-600 text-indigo-600" : "border-transparent text-slate-400"
                   }`}
                 >
                   Comprar
@@ -385,7 +390,7 @@ export default function Mercado({ user, onUpdateUser }) {
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-450 uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">
                     Quantidade
                   </label>
                   <input
@@ -400,8 +405,8 @@ export default function Mercado({ user, onUpdateUser }) {
                 </div>
 
                 <div className="flex justify-between items-center bg-indigo-50/50 p-3 rounded-sm border border-indigo-100 text-xs">
-                  <span className="font-bold text-indigo-850">Total geral:</span>
-                  <span className="font-black text-indigo-850 text-sm">
+                  <span className="font-bold text-indigo-800">Total geral:</span>
+                  <span className="font-black text-indigo-800 text-sm">
                     R$ {totalCost.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -411,7 +416,7 @@ export default function Mercado({ user, onUpdateUser }) {
                   className={`w-full font-bold py-2.5 rounded-sm text-xs shadow-md transition ${
                     tradeTab === "buy"
                       ? "bg-indigo-600 hover:bg-indigo-700 text-white"
-                      : "bg-red-650 hover:bg-red-700 text-white"
+                      : "bg-red-600 hover:bg-red-700 text-white"
                   }`}
                 >
                   Confirmar {tradeTab === "buy" ? "Compra" : "Venda"}

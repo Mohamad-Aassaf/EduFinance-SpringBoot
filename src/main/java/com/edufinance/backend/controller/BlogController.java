@@ -56,8 +56,7 @@ public class BlogController {
             @RequestParam(defaultValue = "investimentos OR economia OR finanças OR \"educação financeira\"") String q,
             @RequestParam(defaultValue = "pt") String lang) {
         try {
-            // Join blocks the thread until the future resolves, which fits standard Spring MVC
-            ArticleResponse response = newsService.getEverything(q, lang).join();
+            ArticleResponse response = newsService.buscarNoticias(q, lang);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             e.printStackTrace();

@@ -87,6 +87,8 @@ export default function Dashboard({ user, onTabChange }) {
     module_complete: { label: "Módulo Completo", icon: "🏆" },
     "Primeira Aula": { label: "Primeira Aula", icon: "🎓" },
     "Simulador Pro": { label: "Primeiro Simulador", icon: "📊" },
+    "Ofensiva 7 dias": { label: "Ofensiva 7 dias", icon: "🔥" },
+    "Ofensiva 30 dias": { label: "Ofensiva 30 dias", icon: "🔥" },
   };
 
   if (loading) {

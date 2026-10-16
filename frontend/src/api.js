@@ -1,4 +1,13 @@
-const BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:8080").replace(/\/$/, "");
+// VITE_API_URL="/" (build do Docker): mesma origem, o nginx encaminha /api ao backend.
+// Sem VITE_API_URL (npm run dev): usa o mesmo host da página na porta 8080.
+const BASE_URL = (
+  import.meta.env.VITE_API_URL || `${window.location.protocol}//${window.location.hostname}:8080`
+).replace(/\/$/, "");
+
+// Endereços que o backend devolve começando com "/api" (ex.: a foto de perfil) viram URLs completas
+export function urlDaApi(caminho) {
+  return caminho && caminho.startsWith("/") ? `${BASE_URL}${caminho}` : caminho;
+}
 
 // requisições HTTP com o token JWT
 async function request(endpoint, options = {}) {
