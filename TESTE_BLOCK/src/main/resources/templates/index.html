@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>EduFinance Blockchain</title>
+
+    <link rel="stylesheet" href="/css/style.css">
+
+</head>
+
+<body>
+
+    <header>
+
+        <div>
+
+            <h1>EduFinance</h1>
+
+            <p>Testando esse bagaço</p>
+
+        </div>
+
+        <div th:class="${valid} ? 'status valid' : 'status invalid'">
+
+            <span th:text="${valid} ? '✓ BLOCKCHAIN VÁLIDA' : '⚠ BLOCKCHAIN INVÁLIDA'"></span>
+
+        </div>
+
+    </header>
+
+
+    <main>
+
+        <section class="panel">
+
+            <h2>Nova transação</h2>
+
+            <form action="/transaction" method="post">
+
+                <input type="text" name="wallet" placeholder="Carteira" required>
+
+                <select name="type">
+
+                    <option value="INVESTIMENTO">
+                        Investimento
+                    </option>
+
+                    <option value="RESGATE">
+                        Resgate
+                    </option>
+
+                </select>
+
+                <input type="number" name="amount" step="0.01" placeholder="Valor" required>
+
+                <button type="submit">
+                    Adicionar transação
+                </button>
+
+            </form>
+
+        </section>
+
+
+        <section class="panel">
+
+            <div class="section-header">
+
+                <h2>Transações pendentes</h2>
+
+                <form action="/mine" method="post">
+
+                    <button class="mine">
+                        ⛏ Minerar bloco
+                    </button>
+
+                </form>
+
+            </div>
+
+
+            <div th:if="${pending.isEmpty()}" class="empty">
+
+                Nenhuma transação aguardando mineração.
+
+            </div>
+
+
+            <div th:each="transaction : ${pending}" class="transaction">
+
+                <strong th:text="${transaction.type}"></strong>
+
+                <span th:text="'Carteira: ' + ${transaction.walletAddress}"></span>
+
+                <span th:text="'R$ ' + ${transaction.amount}"></span>
+
+            </div>
+
+        </section>
+
+
+        <section class="blockchain">
+
+            <h2>Blockchain</h2>
+
+            <div class="chain">
+
+                <div th:each="block : ${blocks}" class="block">
+
+                    <div class="block-header">
+
+                        <span th:text="'BLOCK #' + ${block.index}"></span>
+
+                        <span class="badge">
+                            BLOCK
+                        </span>
+
+                    </div>
+
+
+                    <div class="block-content">
+
+                        <p>
+                            <strong>Nonce</strong>
+
+                            <span th:text="${block.nonce}"></span>
+                        </p>
+
+                        <p>
+                            <strong>Transações</strong>
+
+                            <span th:text="${block.transactions.size()}"></span>
+                        </p>
+
+                        <p>
+                            <strong>Hash anterior</strong>
+
+                            <code th:text="${block.previousHash}"></code>
+                        </p>
+
+                        <p>
+                            <strong>Hash</strong>
+
+                            <code th:text="${block.hash}"></code>
+                        </p>
+
+                    </div>
+
+
+                    <div th:if="${block.index > 0}" class="tamper">
+
+                        <form action="/tamper" method="post">
+
+                            <input type="hidden" name="index" th:value="${block.index}">
+
+                            <button type="submit">
+                                ⚠ Adulterar bloco
+                            </button>
+
+                        </form>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+</body>
+
+</html>

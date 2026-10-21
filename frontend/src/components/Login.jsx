@@ -78,7 +78,7 @@ export default function Login({ onLoginSuccess }) {
         {/* Chamada principal */}
         <div className="relative space-y-7 max-w-xl">
           <div className="space-y-4">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/10 border border-white/20">
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-sm bg-white/10 border border-white/20">
               <Sparkles className="w-3.5 h-3.5" style={{ color: "var(--color-accent)" }} />
               Educação financeira gamificada
             </span>
@@ -119,7 +119,7 @@ export default function Login({ onLoginSuccess }) {
               { icon: LineChart, titulo: "Mercado", texto: "Compre ações com saldo virtual" },
               { icon: Trophy, titulo: "Ranking", texto: "Dispute com amigos e colegas" },
             ].map(({ icon: Icon, titulo, texto }) => (
-              <div key={titulo} className="flex items-start gap-3 rounded-sm bg-white/5 border border-white/10 p-3">
+              <div key={titulo} className="flex items-start gap-3 rounded-sm bg-white/12 border border-white/10 p-3">
                 <div className="w-9 h-9 rounded-sm bg-white/10 flex items-center justify-center shrink-0">
                   <Icon className="w-4 h-4 text-white" />
                 </div>
@@ -132,7 +132,7 @@ export default function Login({ onLoginSuccess }) {
           </div>
         </div>
 
-        <p className="relative text-[11px] text-white/50 font-medium">
+        <p className="relative text-[15px] text-white/50 font-medium">
           Projeto educacional: nenhum dinheiro real é investido na plataforma.
         </p>
       </div>

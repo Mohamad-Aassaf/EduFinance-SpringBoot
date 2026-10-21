@@ -30,15 +30,13 @@ import { useState, useEffect, useRef } from "react";
 import {
   Award, Zap, Trophy, Flame, Star, BookOpen, TrendingUp,
   Calendar, Shield, Sparkles, Crown, Pencil, Palette,
-  ChevronRight, CheckCircle, RefreshCw, X, Server, MapPin, Wallet, Wand2, Camera, Trash2, Bot
+  ChevronRight, CheckCircle, RefreshCw, X, ShieldCheck, MapPin, Wand2, Camera, Trash2, Bot
 } from "lucide-react";
 import { api } from "../api";
 import { LocalizacaoForm } from "./rankingShared";
-import AdminAiHostModal from "./AdminAiHostModal";
-import { Avatar, Button, inputClass, labelClass } from "./ui";
+import AdminPanelModal from "./AdminPanelModal";
+import { Avatar } from "./ui";
 import { toast, useMotionEnabled, setMotionEnabled } from "../motion";
-
-const SALDO_INICIAL = 100000;
 
 // ─── FOTO DE PERFIL ────────────────────────────────────────────────────────
 const TAMANHO_FOTO = 256;
@@ -68,88 +66,6 @@ function reduzirFoto(arquivo) {
     };
     img.src = url;
   });
-}
-
-// ─── SALDO VIRTUAL PARA TESTES ─────────────────────────────────────────────
-// Deixa o usuário escolher o próprio saldo virtual, para experimentar o Mercado à vontade
-function SaldoTesteCard({ user, onUpdateUser }) {
-  const [valor, setValor] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  async function definir(novoValor) {
-    setSaving(true);
-    setError("");
-    try {
-      const perfil = await api.put("/api/perfis/me/saldo", { valor: novoValor });
-      onUpdateUser(perfil);
-      setValor("");
-      toast(`Saldo virtual definido em R$ ${perfil.saldoVirtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}.`);
-    } catch (err) {
-      setError(err.message || "Não foi possível alterar o saldo.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    definir(parseFloat(valor));
-  };
-
-  return (
-    <div
-      className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 space-y-4"
-      data-finbot-context="Saldo virtual para testes: aqui você define quanto dinheiro fictício quer ter para experimentar compras e vendas no Mercado. Não é dinheiro real. Como o saldo entra no ranking por saldo, mudar o valor também muda a sua posição nele."
-    >
-      <h3 className="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex flex-wrap items-center gap-x-2">
-        <Wallet className="w-4 h-4" style={{ color: "var(--color-primary)" }} />
-        Saldo Virtual
-        <span className="text-[10px] font-normal text-slate-400">— Ajuste o valor para fazer testes</span>
-      </h3>
-
-      <p className="text-xs text-slate-500 leading-relaxed">
-        Saldo atual:{" "}
-        <strong className="text-slate-800">
-          R$ {user.saldoVirtual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-        </strong>
-        . O novo valor substitui o saldo disponível; as ações da sua carteira não mudam. O ranking por saldo passa a
-        usar o novo valor.
-      </p>
-
-      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row sm:items-end gap-2">
-        <div className="flex-1 min-w-0">
-          <label htmlFor="saldo-teste" className={labelClass}>Novo saldo (R$)</label>
-          <input
-            id="saldo-teste"
-            type="number"
-            required
-            min="0"
-            max="1000000000"
-            step="0.01"
-            placeholder="Ex: 50000"
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            className={inputClass}
-          />
-        </div>
-        <Button type="submit" disabled={saving || valor === ""} className="py-2.5">
-          Definir saldo
-        </Button>
-        <Button
-          variant="secondary"
-          icon={RefreshCw}
-          disabled={saving || user.saldoVirtual === SALDO_INICIAL}
-          onClick={() => definir(SALDO_INICIAL)}
-          className="py-2.5"
-        >
-          Voltar a R$ 100.000
-        </Button>
-      </form>
-
-      {error && <p role="alert" className="text-xs font-bold text-red-700">{error}</p>}
-    </div>
-  );
 }
 
 // ─── MICROINTERAÇÕES (liga/desliga) ────────────────────────────────────────
@@ -650,15 +566,12 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
       {/* ── MICROINTERAÇÕES ─────────────────────────────────────────── */}
       <MicrointeracoesCard />
 
-      {/* ── SALDO VIRTUAL PARA TESTES ──────────────────────────────── */}
-      <SaldoTesteCard user={user} onUpdateUser={onUpdateUser} />
-
-      {/* ── SERVIDOR DA IA (ADMIN) ─────────────────────────────────── */}
+      {/* ── PAINEL DO ADMINISTRADOR ───────────────────────────────── */}
       <div className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 space-y-3">
         <div className="flex items-center justify-between border-b border-slate-100 pb-2">
           <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-            <Server className="w-4 h-4 text-indigo-500" />
-            Servidor da IA (Ollama)
+            <ShieldCheck className="w-4 h-4 text-indigo-500" />
+            Administrador
             <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full">
               ADMIN
             </span>
@@ -667,18 +580,21 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
             onClick={() => setShowAdminModal(true)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-sm text-xs font-bold transition shadow-sm"
           >
-            <Server className="w-3.5 h-3.5" />
-            Alternar PC / Notebook
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Abrir painel
           </button>
         </div>
         <p className="text-xs text-slate-500 leading-relaxed">
-          Define em qual servidor o modelo Ollama roda (PC ou Notebook). A escolha vale para <strong>todos os usuários</strong> do EduFinance e exige a <strong>senha de administrador</strong>.
+          Troca o servidor onde a IA roda (vale para <strong>todos os usuários</strong>), define o saldo virtual da sua conta para testes e reseta o progresso da trilha. Exige a <strong>senha de administrador</strong>.
         </p>
       </div>
 
-      <AdminAiHostModal
+      <AdminPanelModal
         isOpen={showAdminModal}
         onClose={() => setShowAdminModal(false)}
+        user={user}
+        onUpdateUser={onUpdateUser}
+        onTrilhaResetada={loadProfileData}
       />
 
       {/* ── Conquistas (Badges) ── */}

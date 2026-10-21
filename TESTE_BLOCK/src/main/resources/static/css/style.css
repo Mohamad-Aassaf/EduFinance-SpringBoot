@@ -1,0 +1,324 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+
+    margin: 0;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
+    background: #0f172a;
+
+    color: #e2e8f0;
+}
+
+
+header {
+
+    padding: 24px 7%;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+
+    border-bottom:
+        1px solid #334155;
+
+    background: #111827;
+}
+
+
+header h1 {
+
+    margin: 0;
+
+    font-size: 28px;
+}
+
+
+header p {
+
+    margin: 5px 0 0;
+
+    color: #94a3b8;
+}
+
+
+.status {
+
+    padding: 10px 16px;
+
+    border-radius: 10px;
+
+    font-weight: bold;
+}
+
+
+.status.valid {
+
+    background: #064e3b;
+
+    color: #6ee7b7;
+}
+
+
+.status.invalid {
+
+    background: #7f1d1d;
+
+    color: #fca5a5;
+}
+
+
+main {
+
+    width: 86%;
+
+    max-width: 1400px;
+
+    margin: 35px auto;
+}
+
+
+.panel {
+
+    background: #1e293b;
+
+    padding: 25px;
+
+    border-radius: 16px;
+
+    margin-bottom: 25px;
+
+    border:
+        1px solid #334155;
+}
+
+
+.panel h2,
+.blockchain h2 {
+
+    margin-top: 0;
+}
+
+
+form {
+
+    display: flex;
+
+    gap: 12px;
+
+    flex-wrap: wrap;
+}
+
+
+input,
+select {
+
+    background: #0f172a;
+
+    color: white;
+
+    border:
+        1px solid #475569;
+
+    padding: 12px;
+
+    border-radius: 8px;
+
+    outline: none;
+}
+
+
+button {
+
+    border: none;
+
+    padding: 12px 18px;
+
+    border-radius: 8px;
+
+    cursor: pointer;
+
+    font-weight: bold;
+
+    background: #2563eb;
+
+    color: white;
+}
+
+
+button:hover {
+
+    opacity: .85;
+}
+
+
+.mine {
+
+    background: #059669;
+}
+
+
+.section-header {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    align-items: center;
+}
+
+
+.empty {
+
+    color: #94a3b8;
+
+    padding: 15px 0;
+}
+
+
+.transaction {
+
+    display: flex;
+
+    justify-content: space-between;
+
+    gap: 20px;
+
+    background: #0f172a;
+
+    padding: 15px;
+
+    margin-top: 10px;
+
+    border-radius: 8px;
+}
+
+
+.blockchain {
+
+    margin-top: 35px;
+}
+
+
+.chain {
+
+    display: flex;
+
+    align-items: stretch;
+
+    gap: 35px;
+
+    overflow-x: auto;
+
+    padding: 20px 5px;
+}
+
+
+.block {
+
+    min-width: 350px;
+
+    background: #1e293b;
+
+    border:
+        1px solid #475569;
+
+    border-radius: 16px;
+
+    overflow: hidden;
+
+    position: relative;
+}
+
+
+.block-header {
+
+    padding: 16px;
+
+    background: #334155;
+
+    display: flex;
+
+    justify-content: space-between;
+
+    font-weight: bold;
+}
+
+
+.badge {
+
+    font-size: 11px;
+
+    background: #475569;
+
+    padding: 5px 8px;
+
+    border-radius: 5px;
+}
+
+
+.block-content {
+
+    padding: 20px;
+}
+
+
+.block-content p {
+
+    margin: 15px 0;
+
+    display: flex;
+
+    flex-direction: column;
+
+    gap: 6px;
+}
+
+
+.block-content strong {
+
+    color: #94a3b8;
+
+    font-size: 13px;
+}
+
+
+code {
+
+    background: #0f172a;
+
+    padding: 8px;
+
+    border-radius: 6px;
+
+    word-break: break-all;
+
+    font-size: 11px;
+
+    color: #93c5fd;
+}
+
+
+.tamper {
+
+    padding: 15px;
+
+    border-top:
+        1px solid #334155;
+}
+
+
+.tamper button {
+
+    background: #dc2626;
+
+    width: 100%;
+}

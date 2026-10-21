@@ -1,8 +1,70 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { CheckCircle, BookOpen, Star, Crown, Flame, Target, Trophy, Sparkles } from "lucide-react";
 import { api } from "../api";
 import LessonView from "./LessonView";
-import { toast } from "../motion";
+import { toast, isMotionEnabled } from "../motion";
+
+// Tempos (em segundos) da comemoração ao concluir uma aula:
+// a bolinha concluída pula, o rio enche em direção à próxima aula e ela pula quando a água chega
+const RIO_INICIO = 0.45;
+const RIO_DURACAO = 1.3;
+const CHEGADA = RIO_INICIO + RIO_DURACAO - 0.15;
+const COMEMORACAO_TOTAL_MS = 3400;
+
+// Rio em curva ligando a bolinha anterior (deslocada em xDe) à seguinte (deslocada em xPara)
+function Rio({ id, xDe, xPara, comAgua, enchendo }) {
+  const largura = 160;
+  const altura = 44;
+  const x1 = largura / 2 + xDe;
+  const x2 = largura / 2 + xPara;
+  const d = `M ${x1} 2 C ${x1} ${altura / 2}, ${x2} ${altura / 2}, ${x2} ${altura - 2}`;
+  const estilo = enchendo
+    ? { "--tr-delay": `${RIO_INICIO}s`, "--tr-dur": `${RIO_DURACAO}s`, "--tr-fade": `${RIO_INICIO + RIO_DURACAO - 0.2}s` }
+    : undefined;
+
+  return (
+    <svg width={largura} height={altura} viewBox={`0 0 ${largura} ${altura}`} className="mt-3 mb-1 overflow-visible" aria-hidden="true">
+      <defs>
+        <linearGradient id={`rio-${id}`} x1="0" y1="0" x2="0" y2={altura} gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="100%" stopColor="#3b82f6" />
+        </linearGradient>
+      </defs>
+      <path d={d} className="tr-rio-leito" fill="none" strokeWidth="12" strokeLinecap="round" />
+      {comAgua && (
+        <>
+          <path
+            d={d}
+            pathLength="1"
+            fill="none"
+            stroke={`url(#rio-${id})`}
+            strokeWidth="8"
+            strokeLinecap="round"
+            className={`tr-rio-agua ${enchendo ? "tr-rio-enchendo" : ""}`}
+            style={estilo}
+          />
+          <path
+            d={d}
+            pathLength="1"
+            fill="none"
+            stroke="white"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            className={`tr-rio-corrente ${enchendo ? "tr-rio-corrente-atrasada" : ""}`}
+            style={estilo}
+          />
+        </>
+      )}
+    </svg>
+  );
+}
+
+// Faíscas que saem da bolinha quando ela comemora
+function Faiscas() {
+  return Array.from({ length: 8 }, (_, i) => (
+    <span key={i} className="tr-faisca" style={{ "--tr-ang": `${i * 45}deg` }} />
+  ));
+}
 
 const MODULE_CONFIG = {
   fundamentos: { label: "Fundamentos", emoji: "📘", order: 1 },
@@ -17,6 +79,11 @@ export default function Trilha({ user, onUpdateUser }) {
   const [progress, setProgress] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLesson, setSelectedLesson] = useState(null);
+  // { feita, proxima, mesmoModulo } enquanto a animação de avanço na trilha estiver rodando
+  const [comemoracao, setComemoracao] = useState(null);
+  // Aulas concluídas no momento em que a aula foi aberta, para descobrir o que foi concluído nela
+  const concluidasAoAbrir = useRef(null);
+  const timerComemoracao = useRef(null);
 
   async function loadData() {
     try {
@@ -58,6 +125,40 @@ export default function Trilha({ user, onUpdateUser }) {
       };
     })
     .filter((m) => m.lessons.length > 0);
+
+  const ordemDasAulas = groupedModules.flatMap((m) => m.lessons.map((l) => ({ id: l.id, modulo: m.key })));
+
+  const abrirAula = (lesson) => {
+    concluidasAoAbrir.current = new Set(completedIds);
+    setSelectedLesson(lesson);
+  };
+
+  // Quando a janela da aula fecha e há uma aula recém-concluída, o rio corre até a próxima
+  useEffect(() => {
+    if (selectedLesson || !concluidasAoAbrir.current) return;
+    const antes = concluidasAoAbrir.current;
+    const nova = ordemDasAulas.find((a) => completedIds.has(a.id) && !antes.has(a.id));
+    if (!nova) return;
+    concluidasAoAbrir.current = null;
+
+    const posicao = ordemDasAulas.findIndex((a) => a.id === nova.id);
+    const proxima = ordemDasAulas[posicao + 1] || null;
+    setComemoracao({
+      feita: nova.id,
+      proxima: proxima?.id ?? null,
+      mesmoModulo: proxima?.modulo === nova.modulo,
+    });
+
+    document.querySelector(`[data-licao="${nova.id}"]`)?.scrollIntoView({
+      behavior: isMotionEnabled() ? "smooth" : "auto",
+      block: "center",
+    });
+
+    clearTimeout(timerComemoracao.current);
+    timerComemoracao.current = setTimeout(() => setComemoracao(null), COMEMORACAO_TOTAL_MS);
+  }, [selectedLesson, progress]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => () => clearTimeout(timerComemoracao.current), []);
 
   // A janela da aula continua aberta mostrando o resultado; aqui só atualizamos os dados por trás
   const handleLessonCompleted = (updatedUser) => {
@@ -148,36 +249,68 @@ export default function Trilha({ user, onUpdateUser }) {
                   const prevCompleted = idx === 0 || completedIds.has(module.lessons[idx - 1].id);
                   const isNext = !completed && prevCompleted;
 
+                  const prevLesson = idx > 0 ? module.lessons[idx - 1] : null;
+                  const prevOffset = -offset;
+
+                  const comemoraFeita = comemoracao?.feita === lesson.id;
+                  const comemoraChegada = comemoracao?.proxima === lesson.id;
+                  const rioEnchendo = comemoraChegada && comemoracao.mesmoModulo && prevLesson?.id === comemoracao.feita;
+                  const atrasoChegada = comemoracao?.mesmoModulo ? CHEGADA : 0.6;
+
+                  const animacao = comemoraFeita
+                    ? "tr-celebra tr-celebra-feita"
+                    : comemoraChegada
+                      ? "tr-celebra tr-celebra-chegada"
+                      : isNext
+                        ? "tr-proxima"
+                        : completed
+                          ? "tr-concluida"
+                          : "";
+                  const atraso = comemoraChegada ? `${atrasoChegada}s` : comemoraFeita ? "0s" : `${(idx * 0.9) % 5}s`;
+
                   return (
                     <div key={lesson.id} className="flex flex-col items-center relative">
-                      {/* Linha Conectora */}
-                      {idx > 0 && (
-                        <div className={`w-1 h-6 mt-6 mb-2 rounded-full transition-colors duration-500 ${completed ? "bg-emerald-400" : "bg-slate-200"
-                          }`} />
+                      {/* Rio até esta aula: ganha água quando a aula anterior é concluída */}
+                      {prevLesson && (
+                        <Rio
+                          id={lesson.id}
+                          xDe={prevOffset}
+                          xPara={offset}
+                          comAgua={completedIds.has(prevLesson.id)}
+                          enchendo={rioEnchendo}
+                        />
                       )}
 
                       {/* Botão do Nó */}
                       <button
-                        onClick={() => setSelectedLesson(lesson)}
+                        data-licao={lesson.id}
+                        onClick={() => abrirAula(lesson)}
                         style={{ transform: `translateX(${offset}px)` }}
                         className="group relative transition hover:scale-105 duration-200 focus:outline-none"
                         title={lesson.titulo}
                       >
-                        <div className={`w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-all duration-300 ${completed
-                          ? "bg-emerald-500 text-white ring-4 ring-emerald-100"
-                          : isNext
-                            ? "bg-indigo-600 text-white ring-4 ring-indigo-200 animate-pulse"
-                            : "bg-indigo-400 text-white ring-4 ring-indigo-50"
-                          }`}>
+                        <div
+                          style={{ "--tr-delay": atraso }}
+                          className={`tr-no relative w-16 h-16 rounded-full flex items-center justify-center shadow-lg transition-colors duration-300 ${animacao} ${completed
+                            ? "bg-emerald-500 text-white ring-4 ring-emerald-100"
+                            : isNext
+                              ? "bg-indigo-600 text-white ring-4 ring-indigo-200"
+                              : "bg-indigo-400 text-white ring-4 ring-indigo-50"
+                            }`}
+                        >
+                          {isNext && !comemoraChegada && <span className="tr-halo" />}
+                          {(comemoraFeita || comemoraChegada) && <span className="tr-explosao" />}
+                          <span className="tr-brilho" />
                           {completed ? (
-                            <CheckCircle className="w-8 h-8" />
+                            <CheckCircle className="relative w-8 h-8" />
                           ) : idx === 0 ? (
-                            <Star className="w-8 h-8 fill-white" />
+                            <Star className="relative w-8 h-8 fill-white" />
                           ) : idx === module.lessons.length - 1 ? (
-                            <Crown className="w-8 h-8" />
+                            <Crown className="relative w-8 h-8" />
                           ) : (
-                            <BookOpen className="w-7 h-7" />
+                            <BookOpen className="relative w-7 h-7" />
                           )}
+                          {(comemoraFeita || comemoraChegada) && <Faiscas />}
                         </div>
 
                         {/* Rótulo da Lição */}

@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User, Sparkles, ChevronDown, Plus, Trash2, Clock, X, MessageSquare, Server, Lock, Globe, FileText } from "lucide-react";
+import { Send, Bot, User, Sparkles, ChevronDown, Plus, Trash2, Clock, X, MessageSquare, Lock, Globe, FileText } from "lucide-react";
 import { api } from "../api";
-import AdminAiHostModal from "./AdminAiHostModal";
 
 // ─── Markdown-like renderer (lightweight) ──────────────────────────────────
 function BotMessage({ content }) {
@@ -300,25 +299,13 @@ export default function FinBot() {
   // Histórico começa fechado no celular (lá ele abre como gaveta por cima do chat)
   const isMobile = () => window.matchMedia("(max-width: 767px)").matches;
   const [showHistory, setShowHistory] = useState(() => !isMobile());
-  const [showAdminModal, setShowAdminModal] = useState(false);
-  const [aiConfig, setAiConfig] = useState(null);
   const chatEndRef = useRef(null);
 
-  // ── Load models, sessions and AI config on mount ─────────────────────────
+  // ── Load models and sessions on mount ─────────────────────────
   useEffect(() => {
     loadModels();
     loadSessions();
-    loadAiConfig();
   }, []);
-
-  async function loadAiConfig() {
-    try {
-      const cfg = await api.get("/api/finbot/config");
-      setAiConfig(cfg);
-    } catch (err) {
-      console.error("Erro ao carregar config de IA:", err);
-    }
-  }
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -478,21 +465,8 @@ export default function FinBot() {
             </div>
           </div>
 
-          {/* Model Selector & Admin AI Host Button */}
+          {/* Model Selector */}
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={() => setShowAdminModal(true)}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-sm text-xs font-bold transition shadow-sm"
-              title="Configurar Servidor IA (PC vs Notebook)"
-            >
-              <Server className="w-3.5 h-3.5 text-indigo-500" />
-              <span>IA: {aiConfig?.activeHostMode === "pc" ? "PC" : aiConfig?.activeHostMode === "notebook" ? "Notebook" : "Custom"}</span>
-              <span className="hidden md:inline text-[9px] font-extrabold px-1.5 py-0.5 bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 rounded-full">
-                ADMIN
-              </span>
-            </button>
-
             {models.length > 0 && (
               <ModelSelector
                 models={models}
@@ -590,11 +564,6 @@ export default function FinBot() {
         </div>
       </div>
 
-      <AdminAiHostModal
-        isOpen={showAdminModal}
-        onClose={() => setShowAdminModal(false)}
-        onConfigUpdated={(cfg) => setAiConfig(cfg)}
-      />
     </div>
   );
 }

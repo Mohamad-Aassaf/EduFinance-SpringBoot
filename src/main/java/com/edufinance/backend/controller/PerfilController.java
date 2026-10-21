@@ -216,23 +216,5 @@ public class PerfilController {
         return limpo.isEmpty() ? null : limpo;
     }
 
-    /*
-     * Define o saldo virtual do próprio usuário, para testes.
-     * Só vale para quem está autenticado: ninguém altera o saldo de outra pessoa.
-     */
-    @PutMapping("/me/saldo")
-    public ResponseEntity<Perfil> definirMeuSaldo(@RequestBody Map<String, Object> payload) {
-        Perfil perfil = usuarioAtual.exigir();
-        double valor;
-        try {
-            valor = Double.parseDouble(payload.get("valor").toString());
-        } catch (Exception e) {
-            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "Informe um valor numérico para o saldo.");
-        }
-        if (!(valor >= 0) || valor > 1_000_000_000) {
-            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "O saldo deve ficar entre R$ 0 e R$ 1 bilhão.");
-        }
-        perfil.setSaldoVirtual(Math.round(valor * 100.0) / 100.0);
-        return ResponseEntity.ok(perfilRepository.save(perfil));
-    }
+    // O saldo virtual de testes agora é definido pelo painel do administrador (AdminController)
 }
