@@ -20,6 +20,7 @@
  */
 
 import { useState, useEffect } from "react";
+import { flushSync } from "react-dom";
 import Login from "./components/Login";
 import Sidebar from "./components/Sidebar";
 import Dashboard from "./components/Dashboard";
@@ -33,11 +34,11 @@ import Ranking from "./components/Ranking";
 import Perfil from "./components/Perfil";
 import Historico from "./components/Historico";
 import FinBotInspector from "./components/FinBotInspector";
-import AdminAiHostModal from "./components/AdminAiHostModal";
 import BoasVindas from "./components/BoasVindas";
 import { Toaster, AnimatedNumber } from "./components/Feedback";
 import { api } from "./api";
-import { Flame, Moon, Sun, Menu, Server } from "lucide-react";
+import { isMotionEnabled } from "./motion";
+import { Flame, Moon, Sun, Menu } from "lucide-react";
 import { IconButton } from "./components/ui";
 
 // ─── DEFINIÇÃO DAS PALETAS ────────────────────────────────────────────────────
@@ -210,20 +211,6 @@ export default function App() {
   useEffect(() => {
     if (user && convite) setActiveTab("ranking");
   }, [user, convite]);
-  const [showAdminAiModal, setShowAdminAiModal] = useState(false);
-  const [aiConfig, setAiConfig] = useState(null);
-
-  useEffect(() => {
-    async function loadAiConfig() {
-      try {
-        const cfg = await api.get("/api/finbot/config");
-        setAiConfig(cfg);
-      } catch (e) {
-        console.error("Erro ao obter config IA:", e);
-      }
-    }
-    loadAiConfig();
-  }, []);
 
   // ── Menu lateral ───────────────────────────────────────────────
   // Desktop: alterna entre trilho de ícones e menu com rótulos. Mobile: abre a gaveta.
@@ -313,7 +300,45 @@ export default function App() {
     setUser(perfil);
     setRevendoIntro(false);
   };
-  const toggleDarkMode = () => setDarkMode((prev) => !prev);
+  /*
+   * Troca de tema com transformação: o novo tema se espalha num círculo que nasce no botão.
+   * Usa a View Transitions API; sem ela (ou com as animações desligadas), as cores só fazem um fade rápido.
+   */
+  const toggleDarkMode = (evento) => {
+    const novo = !darkMode;
+    const html = document.documentElement;
+    const aplicar = () => {
+      html.classList.toggle("dark", novo);
+      flushSync(() => setDarkMode(novo));
+    };
+
+    if (!isMotionEnabled()) {
+      aplicar();
+      return;
+    }
+
+    if (!document.startViewTransition) {
+      html.classList.add("tema-trocando");
+      aplicar();
+      setTimeout(() => html.classList.remove("tema-trocando"), 500);
+      return;
+    }
+
+    const caixa = evento?.currentTarget?.getBoundingClientRect();
+    const x = caixa ? caixa.left + caixa.width / 2 : window.innerWidth - 40;
+    const y = caixa ? caixa.top + caixa.height / 2 : 40;
+    const raio = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+
+    html.classList.add("tema-transicao");
+    const transicao = document.startViewTransition(aplicar);
+    transicao.ready.then(() => {
+      html.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${raio}px at ${x}px ${y}px)`] },
+        { duration: 700, easing: "cubic-bezier(0.65, 0, 0.35, 1)", pseudoElement: "::view-transition-new(root)" }
+      );
+    });
+    transicao.finished.finally(() => html.classList.remove("tema-transicao"));
+  };
 
   if (checkingAuth) {
     return (
@@ -389,19 +414,9 @@ export default function App() {
                     <Flame className="w-4 h-4" style={{ fill: "var(--color-accent)", color: "var(--color-accent)" }} />
                     <span>{user.ofensivaAtual ?? 0}</span>
                   </div>
-                  <button
-                    onClick={() => setShowAdminAiModal(true)}
-                    title="Servidor da IA em uso por todos os usuários (alterar exige senha de administrador)"
-                    className="flex items-center gap-1.5 px-3 h-9 rounded-full text-xs font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:border-indigo-400 transition"
-                  >
-                    <Server className="w-3.5 h-3.5 text-indigo-500" />
-                    <span className="hidden lg:inline">IA: {aiConfig?.activeHostMode === "pc" ? "PC" : aiConfig?.activeHostMode === "notebook" ? "Notebook" : "Custom"}</span>
-                    <span className="hidden sm:inline text-[9px] font-extrabold px-1.5 py-0.5 bg-amber-200 text-amber-900 rounded">
-                      ADMIN
-                    </span>
-                  </button>
-
                   <IconButton
+                    key={darkMode ? "claro" : "escuro"}
+                    className="tema-botao"
                     icon={darkMode ? Sun : Moon}
                     label={darkMode ? "Modo claro" : "Modo escuro"}
                     onClick={toggleDarkMode}
@@ -462,11 +477,6 @@ export default function App() {
             <BoasVindas user={user} revisao={revendoIntro} onSaindo={handleIntroSaindo} onConcluir={handleIntroConcluida} />
           )}
 
-          <AdminAiHostModal
-            isOpen={showAdminAiModal}
-            onClose={() => setShowAdminAiModal(false)}
-            onConfigUpdated={(cfg) => setAiConfig(cfg)}
-          />
         </div>
       ) : (
         <Login onLoginSuccess={handleLoginSuccess} />

@@ -967,3 +967,300 @@ html.no-motion *::after {
 .bv-barra {
   animation: bvBarra 1300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
+
+
+/* ── Trilha de aprendizado: rio entre as aulas e bolinhas que pulam e brilham ── */
+
+/* Leito do rio (seco enquanto a aula anterior não foi concluída) */
+.tr-rio-leito {
+  stroke: #e2e8f0;
+}
+
+html.dark .tr-rio-leito {
+  stroke: #334155;
+}
+
+/* Água: com pathLength=1, dasharray/dashoffset de 1 deixam o traço vazio ou cheio */
+.tr-rio-agua {
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 0;
+}
+
+/* O rio enche da aula concluída até a próxima */
+.tr-rio-enchendo {
+  animation: trRioEncher var(--tr-dur, 1.3s) cubic-bezier(0.45, 0, 0.25, 1) var(--tr-delay, 0s) both;
+}
+
+@keyframes trRioEncher {
+  from {
+    stroke-dashoffset: 1;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Correnteza: pequenos reflexos brancos descendo o rio sem parar */
+.tr-rio-corrente {
+  stroke-dasharray: 0.05 0.17;
+  opacity: 0.55;
+  animation: trCorrente 1.4s linear infinite;
+}
+
+.tr-rio-corrente-atrasada {
+  animation: trCorrente 1.4s linear infinite, trAparecer 0.4s ease-out var(--tr-fade, 0s) both;
+}
+
+@keyframes trCorrente {
+  from {
+    stroke-dashoffset: 0;
+  }
+
+  to {
+    stroke-dashoffset: -0.22;
+  }
+}
+
+@keyframes trAparecer {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 0.55;
+  }
+}
+
+/* Brilho que atravessa a bolinha na diagonal */
+.tr-brilho {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.tr-brilho::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.7) 50%, transparent 65%);
+  translate: -130% 0;
+}
+
+@keyframes trBrilho {
+  0% {
+    translate: -130% 0;
+  }
+
+  25%,
+  100% {
+    translate: 130% 0;
+  }
+}
+
+/* Pulo com leve achatamento ao tocar o chão */
+@keyframes trPulo {
+
+  0%,
+  100% {
+    translate: 0 0;
+    scale: 1;
+  }
+
+  30% {
+    translate: 0 -16px;
+    scale: 1.06;
+  }
+
+  52% {
+    translate: 0 0;
+    scale: 1.1 0.88;
+  }
+
+  70% {
+    translate: 0 -5px;
+    scale: 0.98 1.03;
+  }
+
+  85% {
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
+/* Próxima aula: pula de tempos em tempos, brilha e emite um halo */
+@keyframes trPuloOcioso {
+
+  0%,
+  40%,
+  100% {
+    translate: 0 0;
+    scale: 1;
+  }
+
+  12% {
+    translate: 0 -10px;
+    scale: 1.04;
+  }
+
+  22% {
+    translate: 0 0;
+    scale: 1.07 0.92;
+  }
+
+  30% {
+    translate: 0 -3px;
+    scale: 1;
+  }
+}
+
+.tr-proxima {
+  animation: trPuloOcioso 2.6s ease-in-out infinite;
+}
+
+.tr-proxima .tr-brilho::after {
+  animation: trBrilho 2.6s ease-in-out 0.3s infinite;
+}
+
+.tr-halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  pointer-events: none;
+  animation: trHalo 2.6s ease-out infinite;
+}
+
+@keyframes trHalo {
+  0% {
+    box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5);
+  }
+
+  60%,
+  100% {
+    box-shadow: 0 0 0 18px rgba(99, 102, 241, 0);
+  }
+}
+
+/* Aulas concluídas: um brilho discreto de vez em quando, cada uma no seu tempo */
+.tr-concluida .tr-brilho::after {
+  animation: trBrilho 6s ease-in-out var(--tr-delay, 0s) infinite;
+}
+
+/* Comemoração: a aula concluída e, quando a água chega, a próxima aula */
+.tr-celebra {
+  animation: trPulo 0.9s cubic-bezier(0.3, 0, 0.3, 1) var(--tr-delay, 0s) both;
+}
+
+.tr-celebra .tr-brilho::after {
+  animation: trBrilho 3.2s ease-out var(--tr-delay, 0s) both;
+}
+
+.tr-celebra-feita {
+  --tr-cor: rgba(16, 185, 129, 0.6);
+}
+
+.tr-celebra-chegada {
+  --tr-cor: rgba(56, 189, 248, 0.65);
+}
+
+.tr-explosao {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  pointer-events: none;
+  animation: trExplosao 0.9s ease-out var(--tr-delay, 0s) both;
+}
+
+@keyframes trExplosao {
+  from {
+    box-shadow: 0 0 0 0 var(--tr-cor);
+  }
+
+  to {
+    box-shadow: 0 0 0 30px transparent;
+  }
+}
+
+.tr-faisca {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 999px;
+  background: #fbbf24;
+  box-shadow: 0 0 6px #fde68a;
+  pointer-events: none;
+  opacity: 0;
+  animation: trFaisca 0.85s ease-out var(--tr-delay, 0s) both;
+}
+
+.tr-faisca:nth-child(even) {
+  background: #7dd3fc;
+  box-shadow: 0 0 6px #bae6fd;
+}
+
+@keyframes trFaisca {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--tr-ang)) translateY(0) scale(0.4);
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: rotate(var(--tr-ang)) translateY(-52px) scale(1);
+  }
+}
+
+/* ── Troca entre modo claro e escuro ── */
+/* O novo tema se espalha num círculo a partir do botão (o clip-path é animado no App.jsx) */
+html.tema-transicao::view-transition-old(root),
+html.tema-transicao::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+html.tema-transicao::view-transition-old(root) {
+  z-index: 1;
+}
+
+html.tema-transicao::view-transition-new(root) {
+  z-index: 2;
+}
+
+/* Navegadores sem View Transitions: as cores mudam com um fade curto */
+html.tema-trocando *,
+html.tema-trocando *::before,
+html.tema-trocando *::after {
+  transition: background-color 0.45s ease, color 0.45s ease, border-color 0.45s ease, fill 0.45s ease !important;
+}
+
+/* O ícone do botão (sol/lua) gira e cresce ao trocar */
+@keyframes temaIcone {
+  from {
+    rotate: -120deg;
+    scale: 0.3;
+    opacity: 0;
+  }
+
+  70% {
+    scale: 1.15;
+  }
+
+  to {
+    rotate: 0deg;
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+.tema-botao svg {
+  animation: temaIcone 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+}

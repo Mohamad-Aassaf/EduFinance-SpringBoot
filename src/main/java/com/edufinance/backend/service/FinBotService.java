@@ -49,13 +49,17 @@ public class FinBotService {
         }
     }
 
-    // Senha do painel de administração da IA (troque em application.properties ou FINBOT_ADMIN_PASSWORD)
+    // Senha do painel de administração da IA (troque em application.properties ou
+    // FINBOT_ADMIN_PASSWORD)
     @Value("${finbot.admin.password:edufinance}")
     private String adminPassword;
 
     private static final Set<String> HOST_MODES = Set.of("pc", "notebook", "custom");
 
-    /** O servidor escolhido pelo admin vale para todos os usuários e é relido do banco ao iniciar. */
+    /**
+     * O servidor escolhido pelo admin vale para todos os usuários e é relido do
+     * banco ao iniciar.
+     */
     @PostConstruct
     void carregarConfig() {
         try {
@@ -121,7 +125,8 @@ public class FinBotService {
         }
         String url = nova.trim().replaceAll("/+$", "");
         if (!url.startsWith("http://") && !url.startsWith("https://")) {
-            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "O endereço do servidor deve começar com http:// ou https://.");
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST,
+                    "O endereço do servidor deve começar com http:// ou https://.");
         }
         return url;
     }
@@ -169,7 +174,9 @@ public class FinBotService {
     public static final String MODE_CLOSED = "closed"; // only the platform's own knowledge base
     public static final String MODE_OPEN = "open"; // web search
 
-    /** Extra context gathered for one question, plus the sources shown to the user. */
+    /**
+     * Extra context gathered for one question, plus the sources shown to the user.
+     */
     private record Contexto(String texto, List<Map<String, String>> fontes) {
     }
 
@@ -217,7 +224,8 @@ public class FinBotService {
      * @param sessionId existing session ID (null = create new)
      * @param model     Ollama model ID
      * @param userText  the user's message text
-     * @param mode      "closed" (own knowledge base), "open" (web search) or null (model only)
+     * @param mode      "closed" (own knowledge base), "open" (web search) or null
+     *                  (model only)
      * @return map with sessionId and botReply
      */
     public Map<String, Object> chat(Long userId, Long sessionId, String model, String userText, String mode) {
@@ -250,7 +258,7 @@ public class FinBotService {
         // Gather the context for the chosen mode (knowledge base or web)
         Contexto contexto = MODE_CLOSED.equals(mode) ? buscarNaBase(userText)
                 : MODE_OPEN.equals(mode) ? buscarNaWeb(userText)
-                : new Contexto("", List.of());
+                        : new Contexto("", List.of());
         List<Map<String, String>> fontes = contexto.fontes();
 
         // Build Ollama messages array with system prompt first
@@ -259,7 +267,8 @@ public class FinBotService {
         for (ChatMessage m : history) {
             ollamaMessages.add(Map.of("role", m.getRole(), "content", m.getContent()));
         }
-        // The context goes inside the last user message (not persisted): small models follow it better there
+        // The context goes inside the last user message (not persisted): small models
+        // follow it better there
         if (!fontes.isEmpty()) {
             ollamaMessages.set(ollamaMessages.size() - 1,
                     Map.of("role", "user", "content", contexto.texto() + "\n\nPergunta: " + userText));
@@ -271,35 +280,36 @@ public class FinBotService {
             // Closed mode never falls back to the model's own knowledge
             botReply = "Não encontrei esse assunto na base de conhecimento do EduFinance. "
                     + "Tente reformular a pergunta ou troque para o modo **Aberto** para buscar na web.";
-        } else try {
-            Map<String, Object> requestBody = Map.of(
-                    "model", selectedModel,
-                    "messages", ollamaMessages,
-                    "stream", false);
+        } else
+            try {
+                Map<String, Object> requestBody = Map.of(
+                        "model", selectedModel,
+                        "messages", ollamaMessages,
+                        "stream", false);
 
-            @SuppressWarnings("unchecked")
-            Map<String, Object> response = webClient.post()
-                    .uri(getOllamaApiUrl() + "/api/chat")
-                    .header("Content-Type", "application/json")
-                    .bodyValue(requestBody)
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .timeout(Duration.ofMinutes(5))
-                    .block();
-
-            if (response != null && response.containsKey("message")) {
                 @SuppressWarnings("unchecked")
-                Map<String, Object> msgMap = (Map<String, Object>) response.get("message");
-                botReply = (String) msgMap.getOrDefault("content", "Sem resposta do modelo.");
-            } else {
-                botReply = "O modelo não retornou uma resposta válida.";
+                Map<String, Object> response = webClient.post()
+                        .uri(getOllamaApiUrl() + "/api/chat")
+                        .header("Content-Type", "application/json")
+                        .bodyValue(requestBody)
+                        .retrieve()
+                        .bodyToMono(Map.class)
+                        .timeout(Duration.ofMinutes(5))
+                        .block();
+
+                if (response != null && response.containsKey("message")) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> msgMap = (Map<String, Object>) response.get("message");
+                    botReply = (String) msgMap.getOrDefault("content", "Sem resposta do modelo.");
+                } else {
+                    botReply = "O modelo não retornou uma resposta válida.";
+                }
+            } catch (WebClientResponseException e) {
+                botReply = "Erro na API Ollama [" + e.getStatusCode() + "]: " + e.getResponseBodyAsString();
+            } catch (Exception e) {
+                botReply = "❌ Falha ao conectar ao Ollama. Verifique se o Ollama está rodando (`ollama serve`). Erro: "
+                        + e.getMessage();
             }
-        } catch (WebClientResponseException e) {
-            botReply = "Erro na API Ollama [" + e.getStatusCode() + "]: " + e.getResponseBodyAsString();
-        } catch (Exception e) {
-            botReply = "❌ Falha ao conectar ao Ollama. Verifique se o Ollama está rodando (`ollama serve`). Erro: "
-                    + e.getMessage();
-        }
 
         if (MODE_OPEN.equals(mode) && fontes.isEmpty()) {
             botReply = "⚠️ *Não consegui buscar na web agora; esta resposta usa apenas o conhecimento do modelo.*\n\n"
@@ -330,7 +340,10 @@ public class FinBotService {
         return result;
     }
 
-    /** Closed mode: excerpts from the lessons and from the documents in the knowledge folder. */
+    /**
+     * Closed mode: excerpts from the lessons and from the documents in the
+     * knowledge folder.
+     */
     private Contexto buscarNaBase(String pergunta) {
         StringBuilder texto = new StringBuilder(
                 "Responda usando SOMENTE os trechos abaixo, retirados da base de conhecimento do EduFinance. "
@@ -344,7 +357,11 @@ public class FinBotService {
         return new Contexto(texto.toString(), new ArrayList<>(fontes.values()));
     }
 
-    /** Open mode: web search results; if the search fails, recent news about the subject. */
+    /*
+     * Modo Aberto: Resultados de pesquina na web; se ele falha busca noticias
+     * recentes sobre o tópico
+     */
+
     private Contexto buscarNaWeb(String pergunta) {
         String consulta = pergunta.length() > 200 ? pergunta.substring(0, 200) : pergunta;
         StringBuilder texto = new StringBuilder("Hoje é "
