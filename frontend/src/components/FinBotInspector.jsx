@@ -27,8 +27,112 @@
  */
 
 import { useState, useEffect, useRef } from "react";
-import { Bot, X, Loader2, Zap, Eye, EyeOff } from "lucide-react";
+import { Bot, X, Loader2, Zap, Eye } from "lucide-react";
 import { api } from "../api";
+import { isMotionEnabled } from "../motion";
+
+const RAIO_LUZ = 110; // raio (px) do círculo iluminado em volta do mouse
+
+/*
+ * Holofote do modo inspeção: escurece a página, deixa um círculo de luz em volta do mouse
+ * e desenha o feixe saindo do botão do FinBot até ele.
+ * Tudo é atualizado direto no DOM a cada quadro (requestAnimationFrame), sem re-render do React.
+ * A luz segue o mouse com um leve atraso, para o movimento parecer de um holofote de verdade.
+ */
+function Holofote({ buttonRef, iconRef }) {
+  const sombraRef = useRef(null);
+  const feixeRef = useRef(null);
+  const gradienteRef = useRef(null);
+  const brilhoRef = useRef(null);
+
+  useEffect(() => {
+    // Antes de o mouse se mexer (ou no celular), a luz começa no meio da tela
+    const alvo = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+    const atual = { ...alvo };
+    let quadro;
+
+    const aoMover = (e) => {
+      alvo.x = e.clientX;
+      alvo.y = e.clientY;
+    };
+
+    const desenhar = () => {
+      const suave = isMotionEnabled() ? 0.18 : 1;
+      atual.x += (alvo.x - atual.x) * suave;
+      atual.y += (alvo.y - atual.y) * suave;
+      const { x, y } = atual;
+
+      sombraRef.current?.style.setProperty("--luz-x", `${x}px`);
+      sombraRef.current?.style.setProperty("--luz-y", `${y}px`);
+
+      const botao = buttonRef.current?.getBoundingClientRect();
+      if (botao && feixeRef.current) {
+        const bx = botao.left + botao.width / 2;
+        const by = botao.top + botao.height / 2;
+        const dx = x - bx;
+        const dy = y - by;
+        const dist = Math.hypot(dx, dy) || 1;
+        // Vetor perpendicular ao feixe, para abrir o cone
+        const px = -dy / dist;
+        const py = dx / dist;
+        const base = 10;
+        const boca = RAIO_LUZ * 0.85;
+        feixeRef.current.setAttribute(
+          "points",
+          [
+            `${bx + px * base},${by + py * base}`,
+            `${x + px * boca},${y + py * boca}`,
+            `${x - px * boca},${y - py * boca}`,
+            `${bx - px * base},${by - py * base}`,
+          ].join(" ")
+        );
+        gradienteRef.current?.setAttribute("x1", bx);
+        gradienteRef.current?.setAttribute("y1", by);
+        gradienteRef.current?.setAttribute("x2", x);
+        gradienteRef.current?.setAttribute("y2", y);
+        brilhoRef.current?.setAttribute("cx", x);
+        brilhoRef.current?.setAttribute("cy", y);
+
+        // O FinBot vira a cabeça na direção da luz (no máximo 30°).
+        // Ele fica no canto inferior direito, então "reto" é olhar para cima e à esquerda (-135°).
+        const angulo = Math.max(-30, Math.min(30, (Math.atan2(dy, dx) * 180) / Math.PI + 135));
+        iconRef.current?.style.setProperty("--olhar", `${angulo}deg`);
+      }
+
+      quadro = requestAnimationFrame(desenhar);
+    };
+
+    window.addEventListener("pointermove", aoMover, { passive: true });
+    quadro = requestAnimationFrame(desenhar);
+    return () => {
+      window.removeEventListener("pointermove", aoMover);
+      cancelAnimationFrame(quadro);
+    };
+  }, [buttonRef, iconRef]);
+
+  return (
+    <div data-finbot-ignore="true" aria-hidden="true" className="fixed inset-0 z-[9990] pointer-events-none holofote-entrada">
+      {/* Escuridão com um buraco de luz em volta do mouse */}
+      <div ref={sombraRef} className="absolute inset-0 holofote-sombra" style={{ "--luz-raio": `${RAIO_LUZ}px` }} />
+      {/* Feixe de luz saindo do FinBot */}
+      <svg className="absolute inset-0 w-full h-full">
+        <defs>
+          <linearGradient id="holofote-feixe" ref={gradienteRef} gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#fff7d6" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#fff7d6" stopOpacity="0.08" />
+          </linearGradient>
+          <radialGradient id="holofote-brilho">
+            <stop offset="0%" stopColor="#fffbeb" stopOpacity="0.28" />
+            <stop offset="70%" stopColor="#fffbeb" stopOpacity="0.1" />
+            <stop offset="100%" stopColor="#fffbeb" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <polygon ref={feixeRef} fill="url(#holofote-feixe)" className="holofote-feixe" />
+        <circle ref={brilhoRef} r={RAIO_LUZ} fill="url(#holofote-brilho)" />
+      </svg>
+    </div>
+  );
+}
 
 export default function FinBotInspector() {
   // ─── ESTADOS ────────────────────────────────────────────────────
@@ -55,6 +159,9 @@ export default function FinBotInspector() {
 
   // buttonRef: referência ao botão para não inspecioná-lo
   const buttonRef = useRef(null);
+
+  // iconRef: o rostinho do FinBot, que vira na direção do holofote
+  const iconRef = useRef(null);
 
   // ─── FUNÇÃO: Extrair Contexto do Elemento Clicado ────────────────
   /**
@@ -243,6 +350,25 @@ export default function FinBotInspector() {
   // ─── RENDERIZAÇÃO ────────────────────────────────────────────────
   return (
     <>
+      {/* ── Holofote: a página escurece e a luz do FinBot segue o mouse ── */}
+      {isInspecting && <Holofote buttonRef={buttonRef} iconRef={iconRef} />}
+
+      {/* ── Balão do FinBot esperando a escolha ── */}
+      {isInspecting && (
+        <div
+          data-finbot-ignore="true"
+          aria-hidden="true"
+          className="fixed bottom-[5.25rem] right-6 z-[9998] pointer-events-none holofote-balao
+                     bg-white text-slate-700 text-xs font-bold px-3.5 py-2 rounded-xl shadow-xl
+                     flex items-center gap-2"
+        >
+          Estou esperando… escolha algo!
+          <span className="holofote-pontinhos">
+            <span /><span /><span />
+          </span>
+        </div>
+      )}
+
       {/* ── Toast de instrução (aparece quando modo inspeção está ativo) ── */}
       {isInspecting && (
         <div
@@ -270,12 +396,14 @@ export default function FinBotInspector() {
             setShowPanel(false);
           }
         }}
-        title={isInspecting ? "Cancelar inspecção (ESC)" : "Pergunte ao FinBot sobre qualquer elemento"}
+        title={isInspecting ? "Cancelar inspeção (ESC)" : "Pergunte ao FinBot sobre qualquer elemento"}
+        aria-label={isInspecting ? "Cancelar inspeção" : "Pergunte ao FinBot sobre qualquer elemento"}
         className={`
           fixed bottom-6 right-6 ${isInspecting ? "z-[9998]" : "z-40"}
           w-14 h-14 rounded-full shadow-2xl
           flex items-center justify-center
           transition-all duration-200 active:scale-95
+          ${isInspecting ? "holofote-botao" : ""}
         `}
         style={{
           // No modo inspeção: usa accent (laranja por padrão)
@@ -283,10 +411,14 @@ export default function FinBotInspector() {
           background: isInspecting ? "var(--color-accent)" : "var(--color-primary)",
         }}
       >
-        {isInspecting ? (
-          <EyeOff className="w-6 h-6 text-white" />
-        ) : (
+        <span ref={iconRef} className={isInspecting ? "holofote-rosto" : "inline-flex"}>
           <Bot className="w-6 h-6 text-white" />
+        </span>
+        {/* No modo inspeção, um X pequeno mostra que clicar de novo cancela */}
+        {isInspecting && (
+          <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-white text-slate-600 shadow flex items-center justify-center">
+            <X className="w-3 h-3" />
+          </span>
         )}
       </button>
 

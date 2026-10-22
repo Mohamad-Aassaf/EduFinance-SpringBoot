@@ -1264,3 +1264,155 @@ html.tema-trocando *::after {
 .tema-botao svg {
   animation: temaIcone 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+
+/* ── Holofote do FinBot (modo inspeção) ── */
+/* A página escurece, menos um círculo de luz em volta do mouse (posição em --luz-x/--luz-y) */
+.holofote-sombra {
+  background: radial-gradient(
+    circle var(--luz-raio, 110px) at var(--luz-x, 50%) var(--luz-y, 50%),
+    transparent 0%,
+    transparent 72%,
+    rgba(2, 6, 23, 0.6) 100%
+  );
+}
+
+/* A luz acende com uma piscadinha, como uma lâmpada ligando */
+.holofote-entrada {
+  animation: holofoteAcender 0.45s ease-out both;
+}
+
+@keyframes holofoteAcender {
+  0% {
+    opacity: 0;
+  }
+
+  40% {
+    opacity: 0.6;
+  }
+
+  55% {
+    opacity: 0.35;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+/* O feixe tremula de leve */
+.holofote-feixe {
+  animation: holofoteTremor 2.4s ease-in-out infinite;
+}
+
+@keyframes holofoteTremor {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* O FinBot flutua esperando, com um anel de luz pulsando em volta */
+.holofote-botao {
+  animation: holofoteFlutuar 2s ease-in-out infinite, holofoteAnel 2s ease-out infinite;
+}
+
+@keyframes holofoteFlutuar {
+
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -5px;
+  }
+}
+
+@keyframes holofoteAnel {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 247, 214, 0.55), 0 10px 25px rgba(0, 0, 0, 0.35);
+  }
+
+  70%,
+  100% {
+    box-shadow: 0 0 0 16px rgba(255, 247, 214, 0), 0 10px 25px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* O rosto inclina na direção da luz (--olhar é calculado no FinBotInspector) */
+.holofote-rosto {
+  display: inline-flex;
+  rotate: var(--olhar, 0deg);
+  transition: rotate 0.2s ease-out;
+}
+
+/* Balão "estou esperando" */
+.holofote-balao {
+  animation: holofoteBalao 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+
+.holofote-balao::after {
+  content: "";
+  position: absolute;
+  right: 22px;
+  bottom: -5px;
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  rotate: 45deg;
+}
+
+@keyframes holofoteBalao {
+  from {
+    opacity: 0;
+    translate: 0 8px;
+    scale: 0.85;
+  }
+}
+
+.holofote-pontinhos {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.holofote-pontinhos span {
+  width: 4px;
+  height: 4px;
+  border-radius: 999px;
+  background: currentColor;
+  opacity: 0.35;
+  animation: holofotePontinho 1.2s ease-in-out infinite;
+}
+
+.holofote-pontinhos span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.holofote-pontinhos span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes holofotePontinho {
+
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    translate: 0 0;
+  }
+
+  30% {
+    opacity: 1;
+    translate: 0 -3px;
+  }
+}
+
+html.dark .holofote-balao {
+  background: #1e2942;
+  color: #e2e8f0;
+}
