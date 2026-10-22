@@ -241,7 +241,10 @@ export default function Login({ onLoginSuccess }) {
                   <input
                     type="text"
                     required
-                    placeholder="Use o código 1234"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    placeholder="Código de 6 dígitos"
                     className="w-full px-3.5 py-2 border border-slate-200 rounded-sm bg-slate-50/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-xs font-semibold text-slate-700"
                     value={code}
                     onChange={(e) => setCode(e.target.value)}

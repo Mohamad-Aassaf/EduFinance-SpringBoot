@@ -568,7 +568,7 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
       <MicrointeracoesCard />
 
       {/* ── CHAVE DIGITAL ───────────────────────────────────────────── */}
-      <ChaveDigitalCard user={user} />
+      <ChaveDigitalCard user={user} onUpdateUser={onUpdateUser} />
 
       {/* ── PAINEL DO ADMINISTRADOR ───────────────────────────────── */}
       <div className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 space-y-3">

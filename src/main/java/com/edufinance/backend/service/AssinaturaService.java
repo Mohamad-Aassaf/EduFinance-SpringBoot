@@ -66,7 +66,12 @@ public class AssinaturaService {
         return chaveRepository.findFirstByTipoAndStatus(ChaveDigital.TIPO_ADMIN, ChaveDigital.ATIVA);
     }
 
-    public long ultimaSequencia(ChaveDigital chave) {
+    /** A conta já teve alguma chave (ativa, pendente ou revogada)? Então ela só opera assinando. */
+    public boolean contaUsaChave(Long usuarioId) {
+        return chaveRepository.existsByUsuarioId(usuarioId);
+    }
+
+        public long ultimaSequencia(ChaveDigital chave) {
         Long ultima = registroRepository.ultimaSequencia(chave.getId());
         return ultima == null ? 0 : ultima;
     }
@@ -103,12 +108,18 @@ public class AssinaturaService {
     }
 
     /**
-     * Ação do próprio usuário. Se ele tem chave ativa, a assinatura é obrigatória e é conferida;
-     * se não tem, devolve null e a ação segue sem assinatura.
+     * Ação do próprio usuário. Se ele tem chave ativa, a assinatura é obrigatória e é conferida.
+     * Quem nunca teve chave segue sem assinatura (devolve null). Quem já teve uma e está sem
+     * chave ativa fica bloqueado até o administrador aprovar a nova: senão, bastaria revogar a
+     * chave para voltar a operar sem assinatura.
      */
     public AcaoAssinada verificarDoUsuario(Long usuarioId, Set<String> tiposAceitos, Object corpoAssinatura) {
         Optional<ChaveDigital> chave = chaveAtivaDoUsuario(usuarioId);
         if (chave.isEmpty()) {
+            if (contaUsaChave(usuarioId)) {
+                throw new RegraNegocioException(HttpStatus.LOCKED,
+                        "Sua conta usa chave digital, mas está sem chave ativa. Crie uma nova chave no Perfil e peça ao administrador para aprová-la.");
+            }
             return null;
         }
         if (corpoAssinatura == null) {

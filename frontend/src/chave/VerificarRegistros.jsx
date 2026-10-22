@@ -14,6 +14,8 @@ const TIPOS = {
   AULA_CONCLUIDA: "Aula concluída",
   CHAVE_CADASTRADA: "Chave cadastrada",
   CHAVE_REVOGADA: "Chave revogada",
+  CHAVE_PEDIDO_CANCELADO: "Pedido de chave cancelado",
+  CONFIG_EXIGIR_CHAVE: "Login só com chave alterado",
   ADMIN_SALDO: "Saldo alterado pelo admin",
   ADMIN_RESET_TRILHA: "Trilha resetada pelo admin",
   ADMIN_CHAVE_APROVADA: "Chave aprovada pelo admin",
@@ -30,6 +32,8 @@ function descrever(r) {
       return d.titulo || `Aula ${d.licaoId}`;
     case "ADMIN_SALDO":
       return `Novo saldo: R$ ${Number(d.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+    case "CONFIG_EXIGIR_CHAVE":
+      return d.ativo ? "Login só com a chave: ligado" : "Login só com a chave: desligado";
     case "ADMIN_RESET_TRILHA":
       return d.aulasRemovidas != null ? `${d.aulasRemovidas} aula(s) removida(s)` : "";
     default:

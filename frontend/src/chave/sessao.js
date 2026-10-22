@@ -98,8 +98,14 @@ export function cancelarPedido() {
  * Se a chave não estiver carregada, pede para a pessoa carregá-la antes.
  */
 export async function assinarAcao(user, tipo, dados) {
-  const { chave, ultimaSequencia } = await api.get("/api/chaves/me");
-  if (!chave || chave.status !== "ATIVA") return null;
+  const { chave, ultimaSequencia, contaUsaChave } = await api.get("/api/chaves/me");
+  if (!chave) {
+    // Conta que já teve chave não volta a operar sem assinatura (o servidor também recusa)
+    if (contaUsaChave) {
+      throw new Error("Sua conta usa chave digital, mas está sem chave ativa. Veja o cartão Chave digital no Perfil.");
+    }
+    return null;
+  }
 
   if (resumos.usuario?.chavePublica !== chave.chavePublica) {
     await pedirChave(chave.chavePublica, { tipo: "usuario", usuarioId: user.id, nome: user.nome, email: user.email });

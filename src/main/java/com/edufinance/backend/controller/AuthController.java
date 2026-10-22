@@ -1,7 +1,9 @@
 package com.edufinance.backend.controller;
 
 import com.edufinance.backend.model.Perfil;
+import com.edufinance.backend.service.AssinaturaService;
 import com.edufinance.backend.service.OfensivaService;
+import com.edufinance.backend.service.RecuperacaoSenhaService;
 import com.edufinance.backend.repository.PerfilRepository;
 import com.edufinance.backend.config.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +33,12 @@ public class AuthController {
 
     @Autowired
     private JwtUtil jwtUtil;
+
+    @Autowired
+    private AssinaturaService assinaturaService;
+
+    @Autowired
+    private RecuperacaoSenhaService recuperacaoSenhaService;
 
     // Endpoint para cadastro
     @PostMapping("/signup")
@@ -81,7 +89,14 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("E-mail ou senha incorretos.");
         }
 
-        Perfil perfil = ofensivaService.registrarAcesso(perfilOpt.get());
+        // Quem ligou "exigir a chave para entrar" só entra pelo login com chave digital
+        Perfil encontrado = perfilOpt.get();
+        if (encontrado.isExigirChaveLogin() && assinaturaService.chaveAtivaDoUsuario(encontrado.getId()).isPresent()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Esta conta só entra com a chave digital. Use \"Entrar com chave digital\".");
+        }
+
+        Perfil perfil = ofensivaService.registrarAcesso(encontrado);
         String token = jwtUtil.gerarToken(perfil.getEmail());
 
         Map<String, Object> response = new HashMap<>();
@@ -91,7 +106,11 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    // Solicita redefinição de senha (simula o envio do código)
+    /*
+     * Solicita redefinição de senha. Gera um código aleatório (ver RecuperacaoSenhaService), que
+     * NÃO volta na resposta: ele chega à pessoa pelo administrador, simulando o e-mail.
+     * A resposta é a mesma exista ou não a conta, para não revelar quais e-mails estão cadastrados.
+     */
     @PostMapping("/recuperar/solicitar")
     public ResponseEntity<?> solicitarRecuperacao(@RequestBody Map<String, String> request) {
         String email = request.get("email");
@@ -99,15 +118,12 @@ public class AuthController {
             return ResponseEntity.badRequest().body("E-mail é obrigatório.");
         }
 
-        Optional<Perfil> perfilOpt = perfilRepository.findByEmail(email);
-        if (perfilOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("E-mail não cadastrado.");
+        if (perfilRepository.findByEmail(email).isPresent()) {
+            recuperacaoSenhaService.criarPedido(email);
         }
 
-        Map<String, String> response = new HashMap<>();
-        response.put("codigo", "1234");
-        response.put("mensagem", "Código de recuperação enviado para seu e-mail (simulado). Use o código: 1234");
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of("mensagem",
+                "Se o e-mail estiver cadastrado, um código de 6 dígitos foi gerado. Peça-o ao administrador do EduFinance (simulação do e-mail)."));
     }
 
     // Confirma a redefinição de senha com o código verificado
@@ -121,13 +137,15 @@ public class AuthController {
             return ResponseEntity.badRequest().body("Campos obrigatórios ausentes.");
         }
 
-        if (!"1234".equals(codigo)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Código de recuperação inválido.");
+        if (novaSenha.length() < 6) {
+            return ResponseEntity.badRequest().body("A nova senha precisa ter pelo menos 6 caracteres.");
         }
+
+        recuperacaoSenhaService.consumirCodigo(email, codigo);
 
         Optional<Perfil> perfilOpt = perfilRepository.findByEmail(email);
         if (perfilOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("E-mail não cadastrado.");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Código inválido ou expirado. Peça um novo.");
         }
 
         Perfil perfil = perfilOpt.get();

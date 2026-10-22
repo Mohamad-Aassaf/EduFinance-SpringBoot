@@ -1,11 +1,16 @@
 /**
- * Cartão "Chave digital" do Perfil: criar, carregar, baixar uma cópia, revogar e
- * verificar os registros. Também mostra o histórico de chaves da conta.
+ * Cartão "Chave digital" do Perfil: criar, carregar, baixar uma cópia, revogar, trocar
+ * (quando a chave foi perdida), exigir a chave no login e verificar os registros.
+ *
+ * Regras (o servidor confere todas):
+ * - A primeira chave já nasce ativa; qualquer outra depois fica pendente até o admin aprovar.
+ * - Revogar a chave ativa e ligar/desligar "exigir a chave para entrar" pedem a assinatura dela.
+ * - Conta que já teve chave só opera assinando: sem chave ativa, compras, vendas e aulas ficam bloqueadas.
  */
 
 import { useEffect, useState } from "react";
 import {
-  Ban, CheckCircle2, Clock, Download, FileKey2, KeyRound, LogOut, ShieldCheck, Trash2,
+  Ban, CheckCircle2, Clock, Download, FileKey2, KeyRound, Lock, LogOut, RefreshCw, ShieldAlert, ShieldCheck, Trash2,
 } from "lucide-react";
 import { api } from "../api";
 import { toast } from "../motion";
@@ -16,7 +21,7 @@ import JanelaChave from "./JanelaChave";
 import VerificarRegistros from "./VerificarRegistros";
 import { impressaoDigital } from "./cripto";
 import {
-  arquivoLembrado, assinarCadastro, baixarArquivo, descarregarChave, esquecerArquivo, exportarArquivo,
+  arquivoLembrado, assinarAcao, assinarCadastro, baixarArquivo, descarregarChave, esquecerArquivo, exportarArquivo,
   useChaveCarregada,
 } from "./sessao";
 
@@ -28,9 +33,10 @@ const STATUS = {
 
 const formatarData = (d) => (d ? new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "");
 
-export default function ChaveDigitalCard({ user }) {
+export default function ChaveDigitalCard({ user, onUpdateUser }) {
   const [estado, setEstado] = useState(null); // resposta de /api/chaves/me
-  const [janela, setJanela] = useState(null); // "criar" | "carregar" | "copia" | "revogar" | "verificar"
+  const [janela, setJanela] = useState(null); // "criar" | "trocar" | "carregar" | "copia" | "revogar" | "cancelar" | "verificar"
+  const [alterandoLogin, setAlterandoLogin] = useState(false);
   const carregada = useChaveCarregada("usuario");
   const dono = { tipo: "usuario", usuarioId: user.id, nome: user.nome, email: user.email };
   const [lembrada, setLembrada] = useState(() => Boolean(arquivoLembrado(dono)));
@@ -53,15 +59,32 @@ export default function ChaveDigitalCard({ user }) {
     atualizar();
   };
 
-  const chave = estado?.chave;
-  const ativa = chave?.status === "ATIVA";
-  const estaCarregada = ativa && carregada?.chavePublica === chave.chavePublica;
-  const jaTeveChave = (estado?.historico?.length ?? 0) > 0;
-  const anteriores = (estado?.historico ?? []).filter((c) => c.id !== chave?.id);
+  const ativa = estado?.chave;
+  const pendente = estado?.pendente;
+  const estaCarregada = ativa && carregada?.chavePublica === ativa.chavePublica;
+  const bloqueada = estado && !ativa && estado.contaUsaChave;
+  const exibidas = new Set([ativa?.id, pendente?.id]);
+  const anteriores = (estado?.historico ?? []).filter((c) => !exibidas.has(c.id));
 
   async function registrar({ semente, chavePublica, senhaConta }) {
     const { payload, assinatura } = assinarCadastro(semente, { tipo: "CHAVE_CADASTRADA", usuarioId: user.id, chavePublica });
     return api.post("/api/chaves", { senhaConta, payload, assinatura });
+  }
+
+  async function alternarExigirNoLogin() {
+    setAlterandoLogin(true);
+    try {
+      const novo = !estado.exigirChaveLogin;
+      const assinatura = await assinarAcao(user, "CONFIG_EXIGIR_CHAVE", { ativo: novo });
+      const perfil = await api.post("/api/chaves/exigir-login", { assinatura });
+      onUpdateUser?.(perfil);
+      toast(novo ? "Agora sua conta só entra com a chave digital." : "Login com senha liberado de novo.");
+      await atualizar();
+    } catch (err) {
+      toast(err.message || "Não foi possível alterar.", "error");
+    } finally {
+      setAlterandoLogin(false);
+    }
   }
 
   return (
@@ -77,78 +100,124 @@ export default function ChaveDigitalCard({ user }) {
 
       {!estado ? (
         <p className="text-xs text-slate-400 animate-pulse">Carregando...</p>
-      ) : !chave ? (
-        <div className="space-y-3">
-          <p className="text-xs text-slate-500 leading-relaxed">
-            Com uma chave digital, suas compras, vendas e aulas concluídas passam a ser <strong>assinadas por você</strong>.
-            A chave fica num arquivo que você guarda (no pendrive, por exemplo) e leva para outros computadores. Nem o
-            administrador consegue alterar ou forjar uma operação sua sem que a verificação acuse.
-          </p>
-          {jaTeveChave && (
-            <p className="text-[11px] text-amber-700 font-semibold">
-              Como você já teve uma chave antes, a nova vai precisar da aprovação do administrador.
-            </p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button icon={KeyRound} onClick={() => setJanela("criar")}>
-              {jaTeveChave ? "Criar nova chave" : "Criar minha chave"}
-            </Button>
-            <Button variant="secondary" icon={ShieldCheck} onClick={() => setJanela("verificar")}>
-              Verificar meus registros
-            </Button>
-          </div>
-        </div>
       ) : (
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className="font-mono text-sm font-bold text-slate-800">{impressaoDigital(chave.chavePublica)}</span>
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS[chave.status].cor}`}>
-              {STATUS[chave.status].texto}
-            </span>
-            {ativa && (
-              <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                  estaCarregada ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-500"
-                }`}
-              >
-                {estaCarregada ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                {estaCarregada ? "Carregada nesta sessão" : "Não carregada"}
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-500 leading-relaxed">
-            {chave.status === "PENDENTE"
-              ? "O administrador precisa aprovar esta chave. Até lá, suas operações continuam sem assinatura."
-              : "Compras, vendas e aulas concluídas exigem a sua assinatura. Para usar em outro computador, carregue o arquivo do pendrive ou digite as 12 palavras."}
-          </p>
+        <>
+          {/* ── Sem chave nenhuma ── */}
+          {!ativa && !pendente && !bloqueada && (
+            <div className="space-y-3">
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Com uma chave digital, suas compras, vendas e aulas concluídas passam a ser <strong>assinadas por você</strong>.
+                A chave fica num arquivo que você guarda (no pendrive, por exemplo) e leva para outros computadores. Nem o
+                administrador consegue alterar ou forjar uma operação sua sem que a verificação acuse.
+              </p>
+              <p className="text-[11px] text-slate-400">
+                Depois de criar, a conta passa a operar só com assinatura. Trocar de chave exige aprovação do administrador.
+              </p>
+              <Button icon={KeyRound} onClick={() => setJanela("criar")}>Criar minha chave</Button>
+            </div>
+          )}
 
-          <div className="flex flex-wrap gap-2">
-            {ativa && !estaCarregada && (
-              <Button icon={FileKey2} onClick={() => setJanela("carregar")}>Carregar chave</Button>
-            )}
-            {estaCarregada && (
-              <>
-                <Button variant="secondary" icon={Download} onClick={() => setJanela("copia")}>Baixar cópia do arquivo</Button>
-                <Button variant="secondary" icon={LogOut} onClick={() => descarregarChave("usuario")}>Descarregar</Button>
-              </>
-            )}
-            <Button variant="secondary" icon={ShieldCheck} onClick={() => setJanela("verificar")}>
-              Verificar meus registros
-            </Button>
-            {lembrada && (
-              <Button
-                variant="ghost"
-                icon={Trash2}
-                onClick={() => { esquecerArquivo(dono); setLembrada(false); toast("Chave esquecida neste computador."); }}
-              >
-                Esquecer neste computador
-              </Button>
-            )}
-            <Button variant="ghost" icon={Ban} onClick={() => setJanela("revogar")} className="text-red-600 hover:text-red-700">
-              {chave.status === "PENDENTE" ? "Cancelar chave" : "Revogar chave"}
-            </Button>
-          </div>
-        </div>
+          {/* ── Já teve chave, mas está sem nenhuma ativa ── */}
+          {bloqueada && (
+            <div className="p-3 rounded-sm border border-red-200 bg-red-50 text-xs text-red-800 space-y-2">
+              <p className="font-extrabold flex items-center gap-1.5"><Lock className="w-4 h-4" /> Operações bloqueadas</p>
+              <p>
+                Sua conta usa chave digital, mas está sem chave ativa. Compras, vendas e aulas só voltam a funcionar
+                quando o administrador aprovar uma chave nova.
+              </p>
+              {!pendente && (
+                <Button icon={KeyRound} onClick={() => setJanela("trocar")}>Criar nova chave</Button>
+              )}
+            </div>
+          )}
+
+          {/* ── Chave ativa ── */}
+          {ativa && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <span className="font-mono text-sm font-bold text-slate-800">{impressaoDigital(ativa.chavePublica)}</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS.ATIVA.cor}`}>{STATUS.ATIVA.texto}</span>
+                <span
+                  className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                    estaCarregada ? "bg-indigo-100 text-indigo-800" : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {estaCarregada ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                  {estaCarregada ? "Carregada nesta sessão" : "Não carregada"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Compras, vendas e aulas concluídas exigem a sua assinatura. Para usar em outro computador, carregue o
+                arquivo do pendrive ou digite as 12 palavras.
+              </p>
+
+              <div className="flex flex-wrap gap-2">
+                {!estaCarregada && <Button icon={FileKey2} onClick={() => setJanela("carregar")}>Carregar chave</Button>}
+                {estaCarregada && (
+                  <>
+                    <Button variant="secondary" icon={Download} onClick={() => setJanela("copia")}>Baixar cópia do arquivo</Button>
+                    <Button variant="secondary" icon={LogOut} onClick={() => descarregarChave("usuario")}>Descarregar</Button>
+                  </>
+                )}
+                {lembrada && (
+                  <Button
+                    variant="ghost"
+                    icon={Trash2}
+                    onClick={() => { esquecerArquivo(dono); setLembrada(false); toast("Chave esquecida neste computador."); }}
+                  >
+                    Esquecer neste computador
+                  </Button>
+                )}
+              </div>
+
+              {/* Exigir a chave para entrar */}
+              <div className="flex items-start justify-between gap-3 p-3 rounded-sm border border-slate-100 bg-slate-50/50">
+                <div className="text-xs">
+                  <p className="font-bold text-slate-700">Só entrar com a chave digital</p>
+                  <p className="text-slate-500 mt-0.5">
+                    Desliga o login por senha nesta conta. Quem descobrir sua senha não consegue entrar.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={Boolean(estado.exigirChaveLogin)}
+                  aria-label="Só entrar com a chave digital"
+                  disabled={alterandoLogin}
+                  onClick={alternarExigirNoLogin}
+                  className="mi-switch mt-0.5 disabled:opacity-50"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-1">
+                {!pendente && (
+                  <Button variant="ghost" icon={RefreshCw} onClick={() => setJanela("trocar")}>Perdi minha chave / trocar</Button>
+                )}
+                <Button variant="ghost" icon={Ban} onClick={() => setJanela("revogar")} className="text-red-600 hover:text-red-700">
+                  Revogar chave
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Pedido de chave nova esperando o admin ── */}
+          {pendente && (
+            <div className="p-3 rounded-sm border border-amber-200 bg-amber-50/60 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-mono text-sm font-bold text-slate-800">{impressaoDigital(pendente.chavePublica)}</span>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS.PENDENTE.cor}`}>{STATUS.PENDENTE.texto}</span>
+              </div>
+              <p className="text-xs text-amber-900">
+                {ativa
+                  ? "Quando o administrador aprovar, esta chave substitui a ativa (que deixa de valer)."
+                  : "Quando o administrador aprovar, suas operações voltam a funcionar com esta chave."}
+              </p>
+              <Button variant="ghost" icon={Ban} onClick={() => setJanela("cancelar")} className="text-red-600">Cancelar pedido</Button>
+            </div>
+          )}
+
+          <Button variant="secondary" icon={ShieldCheck} onClick={() => setJanela("verificar")}>Verificar meus registros</Button>
+        </>
       )}
 
       {anteriores.length > 0 && (
@@ -168,12 +237,20 @@ export default function ChaveDigitalCard({ user }) {
         </details>
       )}
 
-      {janela === "criar" && (
-        <JanelaChave titulo="Criar chave digital" icone={KeyRound} onFechar={fechar} podeFechar={false}>
-          <CriarChaveComCancelar dono={dono} onRegistrar={registrar} onConcluir={(c) => {
-            toast(c?.status === "PENDENTE" ? "Chave criada. Agora ela espera a aprovação do administrador." : "Chave digital ativada.");
-            fechar();
-          }} onCancelar={fechar} />
+      {(janela === "criar" || janela === "trocar") && (
+        <JanelaChave titulo={janela === "criar" ? "Criar chave digital" : "Pedir uma chave nova"} icone={KeyRound} onFechar={fechar} podeFechar={false}>
+          <CriarChaveComCancelar
+            aviso={janela === "trocar"
+              ? "A chave nova fica pendente até o administrador aprovar. Quando ele aprovar, a chave antiga deixa de valer."
+              : null}
+            dono={dono}
+            onRegistrar={registrar}
+            onConcluir={(c) => {
+              toast(c?.status === "PENDENTE" ? "Pedido enviado. Agora a chave espera a aprovação do administrador." : "Chave digital ativada.");
+              fechar();
+            }}
+            onCancelar={fechar}
+          />
         </JanelaChave>
       )}
 
@@ -182,7 +259,7 @@ export default function ChaveDigitalCard({ user }) {
           <CarregarChave
             vaga="usuario"
             dono={dono}
-            esperada={chave?.chavePublica}
+            esperada={ativa?.chavePublica}
             onCarregada={() => { toast("Chave carregada."); fechar(); }}
           />
         </JanelaChave>
@@ -194,9 +271,20 @@ export default function ChaveDigitalCard({ user }) {
         </JanelaChave>
       )}
 
-      {janela === "revogar" && (
-        <JanelaChave titulo={chave?.status === "PENDENTE" ? "Cancelar chave" : "Revogar chave"} icone={Ban} onFechar={fechar}>
-          <RevogarChave onRevogada={() => { descarregarChave("usuario"); esquecerArquivo(dono); toast("Chave revogada."); fechar(); }} />
+      {janela === "revogar" && ativa && (
+        <JanelaChave titulo="Revogar chave" icone={Ban} onFechar={fechar}>
+          <RevogarChave
+            user={user}
+            chave={ativa}
+            onRevogada={() => { descarregarChave("usuario"); esquecerArquivo(dono); toast("Chave revogada."); fechar(); }}
+            onPerdeu={() => setJanela("trocar")}
+          />
+        </JanelaChave>
+      )}
+
+      {janela === "cancelar" && (
+        <JanelaChave titulo="Cancelar pedido de chave" icone={Ban} onFechar={fechar}>
+          <CancelarPendente onCancelado={() => { toast("Pedido cancelado."); fechar(); }} />
         </JanelaChave>
       )}
 
@@ -206,7 +294,7 @@ export default function ChaveDigitalCard({ user }) {
 }
 
 // Enquanto ainda está na etapa das senhas, dá para desistir; depois de gerar, só fecha ao concluir
-function CriarChaveComCancelar({ onCancelar, ...props }) {
+function CriarChaveComCancelar({ onCancelar, aviso, ...props }) {
   const [gerou, setGerou] = useState(false);
   return (
     <div className="space-y-3">
@@ -216,6 +304,7 @@ function CriarChaveComCancelar({ onCancelar, ...props }) {
           que você vai baixar e nas 12 palavras de recuperação.
         </p>
       )}
+      {!gerou && aviso && <p className="text-[11px] font-semibold text-amber-700">{aviso}</p>}
       <CriarChave {...props} onRegistrar={async (dados) => { const c = await props.onRegistrar(dados); setGerou(true); return c; }} />
       {!gerou && (
         <button type="button" onClick={onCancelar} className="w-full text-xs font-bold text-slate-400 hover:text-slate-600">
@@ -270,17 +359,17 @@ function CopiaDoArquivo({ dono, onPronto }) {
   );
 }
 
-function RevogarChave({ onRevogada }) {
-  const [senhaConta, setSenhaConta] = useState("");
+// Revogar a chave ativa exige assinar com ela; quem perdeu a chave vai para "pedir uma chave nova"
+function RevogarChave({ user, chave, onRevogada, onPerdeu }) {
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
 
-  async function revogar(e) {
-    e.preventDefault();
+  async function revogar() {
     setErro("");
     setEnviando(true);
     try {
-      await api.post("/api/chaves/revogar", { senhaConta });
+      const assinatura = await assinarAcao(user, "CHAVE_REVOGADA", { chaveId: chave.id });
+      await api.post("/api/chaves/revogar", { assinatura });
       onRevogada();
     } catch (err) {
       setErro(err.message);
@@ -290,18 +379,57 @@ function RevogarChave({ onRevogada }) {
   }
 
   return (
-    <form onSubmit={revogar} className="space-y-3">
+    <div className="space-y-3">
       <p className="text-xs text-slate-500 leading-relaxed">
-        Use se perdeu o pendrive ou acha que alguém copiou sua chave. Depois de revogada, ela não assina mais nada; as
-        operações assinadas antes continuam válidas. Uma chave nova vai precisar da aprovação do administrador.
+        Use se acha que alguém copiou sua chave. Para revogar, você assina com a própria chave. Depois disso, ela não
+        assina mais nada (as operações assinadas antes continuam válidas) e a conta fica bloqueada para operações até o
+        administrador aprovar uma chave nova.
       </p>
+      <p className="flex items-start gap-1.5 text-[11px] text-amber-700 font-semibold">
+        <ShieldAlert className="w-3.5 h-3.5 shrink-0 mt-px" />
+        Perdeu o pendrive e as 12 palavras? Então não dá para assinar: peça uma chave nova, que substitui esta quando o
+        administrador aprovar.
+      </p>
+      {erro && <p role="alert" className="text-xs font-bold text-red-700">{erro}</p>}
+      <div className="flex flex-wrap gap-2">
+        <Button variant="danger" icon={Ban} disabled={enviando} onClick={revogar}>
+          {enviando ? "Revogando..." : "Assinar e revogar"}
+        </Button>
+        <Button variant="secondary" icon={RefreshCw} disabled={enviando} onClick={onPerdeu}>Perdi a chave</Button>
+      </div>
+    </div>
+  );
+}
+
+function CancelarPendente({ onCancelado }) {
+  const [senhaConta, setSenhaConta] = useState("");
+  const [erro, setErro] = useState("");
+  const [enviando, setEnviando] = useState(false);
+
+  async function cancelar(e) {
+    e.preventDefault();
+    setErro("");
+    setEnviando(true);
+    try {
+      await api.post("/api/chaves/cancelar-pendente", { senhaConta });
+      onCancelado();
+    } catch (err) {
+      setErro(err.message);
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <form onSubmit={cancelar} className="space-y-3">
+      <p className="text-xs text-slate-500">O pedido some e a chave pendente não poderá mais ser usada.</p>
       <div>
-        <label htmlFor="revogar-senha" className={labelClass}>Senha da sua conta</label>
-        <input id="revogar-senha" type="password" autoComplete="current-password" value={senhaConta} onChange={(e) => setSenhaConta(e.target.value)} className={inputClass} />
+        <label htmlFor="cancelar-senha" className={labelClass}>Senha da sua conta</label>
+        <input id="cancelar-senha" type="password" autoComplete="current-password" value={senhaConta} onChange={(e) => setSenhaConta(e.target.value)} className={inputClass} />
       </div>
       {erro && <p role="alert" className="text-xs font-bold text-red-700">{erro}</p>}
       <Button type="submit" variant="danger" icon={Ban} disabled={enviando || !senhaConta} className="w-full py-2.5">
-        {enviando ? "Revogando..." : "Revogar"}
+        {enviando ? "Cancelando..." : "Cancelar pedido"}
       </Button>
     </form>
   );

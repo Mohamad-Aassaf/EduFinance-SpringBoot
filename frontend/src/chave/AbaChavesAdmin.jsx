@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Ban, Check, FileKey2, KeyRound, LogOut, RefreshCw, ShieldCheck } from "lucide-react";
+import { Ban, Check, FileKey2, KeyRound, LogOut, Mail, RefreshCw, ShieldCheck } from "lucide-react";
 import { api } from "../api";
 import { toast } from "../motion";
 import { Button } from "../components/ui";
@@ -132,6 +132,9 @@ export default function AbaChavesAdmin({ password, statusAdmin, onStatusAlterado
         )}
       </section>
 
+      {/* ── Recuperação de senha ── */}
+      <RecuperacoesDeSenha password={password} />
+
       {/* ── Chaves dos usuários ── */}
       <section className="space-y-3 border-t border-slate-100 pt-4">
         <h3 className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
@@ -170,6 +173,53 @@ export default function AbaChavesAdmin({ password, statusAdmin, onStatusAlterado
   );
 }
 
+// O app ainda não envia e-mail: o código de recuperação chega à pessoa pelo administrador
+function RecuperacoesDeSenha({ password }) {
+  const [pedidos, setPedidos] = useState(null);
+  const [erro, setErro] = useState("");
+
+  async function carregar() {
+    setErro("");
+    try {
+      setPedidos(await api.post("/api/admin/recuperacoes", { password }));
+    } catch (err) {
+      setErro(err.message);
+    }
+  }
+
+  useEffect(() => {
+    carregar();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <section className="space-y-2 border-t border-slate-100 pt-4">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs font-extrabold text-slate-800 flex items-center gap-1.5">
+          <Mail className="w-4 h-4 text-indigo-500" /> Recuperação de senha
+        </h3>
+        <button type="button" onClick={carregar} aria-label="Atualizar" className="text-slate-400 hover:text-slate-700">
+          <RefreshCw className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <p className="text-[11px] text-slate-400">
+        Simula o e-mail: confirme que é a própria pessoa antes de passar o código. Cada código vale 15 minutos.
+      </p>
+      {erro && <p role="alert" className="text-xs font-bold text-red-700">{erro}</p>}
+      {pedidos && pedidos.length === 0 && <p className="text-xs text-slate-400">Nenhum pedido em aberto.</p>}
+      {pedidos?.length > 0 && (
+        <ul className="divide-y divide-slate-100 border border-slate-100 rounded-sm">
+          {pedidos.map((p) => (
+            <li key={p.email} className="px-3 py-2 flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-700 truncate">{p.email}</span>
+              <span className="font-mono text-sm font-extrabold text-slate-800 tracking-widest">{p.codigo}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 function ListaChaves({ titulo, vazio, itens, acoes, ocupado }) {
   return (
     <div className="space-y-1.5">
@@ -182,6 +232,9 @@ function ListaChaves({ titulo, vazio, itens, acoes, ocupado }) {
             <li key={item.chave.id} className={`px-3 py-2 flex flex-wrap items-center justify-between gap-2 ${ocupado === item.chave.id ? "opacity-60" : ""}`}>
               <div className="min-w-0">
                 <p className="text-xs font-bold text-slate-800 truncate">{item.nome}</p>
+                {item.substituiAtiva && (
+                  <p className="text-[10px] font-bold text-amber-700">Troca: aprovar revoga a chave ativa desta pessoa</p>
+                )}
                 <p className="text-[10px] text-slate-400 truncate">
                   {item.email} · <span className="font-mono">{impressaoDigital(item.chave.chavePublica)}</span>
                 </p>
