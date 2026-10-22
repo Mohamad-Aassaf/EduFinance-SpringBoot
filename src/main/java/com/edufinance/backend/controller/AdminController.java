@@ -10,6 +10,7 @@ import com.edufinance.backend.repository.ProgressoUsuarioRepository;
 import com.edufinance.backend.service.AssinaturaService;
 import com.edufinance.backend.service.AssinaturaService.AcaoAssinada;
 import com.edufinance.backend.service.FinBotService;
+import com.edufinance.backend.service.RecuperacaoSenhaService;
 import com.edufinance.backend.service.RegraNegocioException;
 import com.edufinance.backend.service.UsuarioAtualService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,6 +58,9 @@ public class AdminController {
 
     @Autowired
     private AssinaturaService assinaturaService;
+
+    @Autowired
+    private RecuperacaoSenhaService recuperacaoSenhaService;
 
     // ── Saldo e trilha da conta logada ──────────────────────────────────────
 
@@ -182,6 +186,9 @@ public class AdminController {
             item.put("chave", c);
             item.put("nome", dono == null ? "?" : dono.getNome());
             item.put("email", dono == null ? "?" : dono.getEmail());
+            // Pendente de quem já tem chave ativa: aprovar troca a chave dessa pessoa
+            item.put("substituiAtiva", ChaveDigital.PENDENTE.equals(c.getStatus())
+                    && chaves.stream().anyMatch(o -> ChaveDigital.ATIVA.equals(o.getStatus()) && Objects.equals(o.getUsuarioId(), c.getUsuarioId())));
             lista.add(item);
         }
         return lista;
@@ -198,13 +205,19 @@ public class AdminController {
         if (!ChaveDigital.PENDENTE.equals(chave.getStatus())) {
             throw new RegraNegocioException(HttpStatus.CONFLICT, "Só chaves pendentes podem ser aprovadas.");
         }
-        if (assinaturaService.chaveAtivaDoUsuario(chave.getUsuarioId()).isPresent()) {
-            throw new RegraNegocioException(HttpStatus.CONFLICT, "Esse usuário já tem uma chave ativa.");
-        }
+        // A chave aprovada substitui a que estava ativa (o usuário perdeu a antiga ou pediu a troca)
+        Optional<ChaveDigital> anterior = assinaturaService.chaveAtivaDoUsuario(chave.getUsuarioId());
+        anterior.ifPresent(a -> {
+            a.revogar("Substituída pela nova chave aprovada");
+            chaveRepository.save(a);
+        });
         chave.ativar();
         chaveRepository.save(chave);
-        assinaturaService.registrarAcao(chave.getUsuarioId(), acao, "ADMIN_CHAVE_APROVADA",
-                Map.of("chaveId", id, "chavePublica", chave.getChavePublica()), "chave:" + id);
+        Map<String, Object> campos = new LinkedHashMap<>();
+        campos.put("chaveId", id);
+        campos.put("chavePublica", chave.getChavePublica());
+        anterior.ifPresent(a -> campos.put("substituiu", a.getId()));
+        assinaturaService.registrarAcao(chave.getUsuarioId(), acao, "ADMIN_CHAVE_APROVADA", campos, "chave:" + id);
         return chave;
     }
 
@@ -224,6 +237,15 @@ public class AdminController {
         assinaturaService.registrarAcao(chave.getUsuarioId(), acao, "ADMIN_CHAVE_REVOGADA",
                 Map.of("chaveId", id, "chavePublica", chave.getChavePublica()), "chave:" + id);
         return chave;
+    }
+
+    // ── Recuperação de senha ────────────────────────────────────────────────
+
+    /** Pedidos de recuperação de senha em aberto, com o código (o app não envia e-mail de verdade). */
+    @PostMapping("/recuperacoes")
+    public List<Map<String, Object>> recuperacoes(@RequestBody Map<String, Object> corpo) {
+        finBotService.exigirAdmin(texto(corpo.get("password")));
+        return recuperacaoSenhaService.pedidosEmAberto();
     }
 
     private ChaveDigital chaveDeUsuario(Long id) {

@@ -66,6 +66,10 @@ public class Perfil {
     @Column(name = "pergunta_intro_respondida", columnDefinition = "boolean not null default false")
     private boolean perguntaIntroRespondida = false;
 
+    // Com chave digital ativa, a pessoa pode exigir que a conta só entre com a chave (sem senha)
+    @Column(name = "exigir_chave_login", columnDefinition = "boolean not null default false")
+    private boolean exigirChaveLogin = false;
+
     public Perfil() {
     }
 
@@ -206,6 +210,14 @@ public class Perfil {
 
     public void setPerguntaIntroRespondida(boolean perguntaIntroRespondida) {
         this.perguntaIntroRespondida = perguntaIntroRespondida;
+    }
+
+    public boolean isExigirChaveLogin() {
+        return exigirChaveLogin;
+    }
+
+    public void setExigirChaveLogin(boolean exigirChaveLogin) {
+        this.exigirChaveLogin = exigirChaveLogin;
     }
 
     public LocalDate getUltimoDiaAtivo() {
