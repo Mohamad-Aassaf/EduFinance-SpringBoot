@@ -35,6 +35,8 @@ import Perfil from "./components/Perfil";
 import Historico from "./components/Historico";
 import FinBotInspector from "./components/FinBotInspector";
 import BoasVindas from "./components/BoasVindas";
+import PedidoChaveModal from "./chave/PedidoChaveModal";
+import { descarregarChave } from "./chave/sessao";
 import { Toaster, AnimatedNumber } from "./components/Feedback";
 import { api } from "./api";
 import { isMotionEnabled } from "./motion";
@@ -283,7 +285,13 @@ export default function App() {
   }, []);
 
   const handleLoginSuccess = (perfil) => { setUser(perfil); setActiveTab(convite ? "ranking" : "dashboard"); };
-  const handleLogout = () => { localStorage.removeItem("token"); localStorage.removeItem("user"); setUser(null); };
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    // A chave digital carregada sai junto com a conta
+    descarregarChave("usuario");
+    setUser(null);
+  };
   const handleUpdateUser = (updatedUser) => setUser(updatedUser);
 
   // Introdução: aparece sozinha no primeiro acesso ou pelo botão "Refazer introdução" do Perfil
@@ -471,6 +479,9 @@ export default function App() {
           {activeTab !== "finbot" && <FinBotInspector />}
 
           <Toaster />
+
+          {/* Pede a chave digital quando uma operação precisa ser assinada */}
+          <PedidoChaveModal />
 
           {/* Primeiro acesso: a apresentação cobre o app até a pessoa concluir */}
           {(user.boasVindasConcluidas === false || revendoIntro) && (

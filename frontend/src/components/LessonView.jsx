@@ -15,6 +15,7 @@ import {
   X, BookOpen, Lightbulb, CheckCircle2, XCircle, ArrowRight, ArrowLeft, RotateCcw, Trophy, Award,
 } from "lucide-react";
 import { api } from "../api";
+import { assinarAcao } from "../chave/sessao";
 import { Button } from "./ui";
 import { Confetti } from "./Feedback";
 import { haptic } from "../motion";
@@ -138,13 +139,17 @@ export default function LessonView({ lesson, user, alreadyCompleted = false, onC
     setFinishing(true);
     setError("");
     try {
-      const response = await api.post(`/api/licoes/${lesson.id}/concluir?usuarioId=${user.id}`);
+      // Com chave digital ativa, a conclusão vai assinada (pede a chave se não estiver carregada)
+      const assinatura = await assinarAcao(user, "AULA_CONCLUIDA", { licaoId: lesson.id, titulo: lesson.titulo });
+      const response = await api.post(`/api/licoes/${lesson.id}/concluir?usuarioId=${user.id}`, { assinatura });
       setResult(response);
       setStep("result");
       onCompleted(response.perfil);
     } catch (err) {
       console.error("Erro ao concluir lição:", err);
-      setError("Não foi possível registrar a conclusão da aula. Tente novamente.");
+      setError(err.message?.includes("chave") || err.message?.includes("ssinatura")
+        ? err.message
+        : "Não foi possível registrar a conclusão da aula. Tente novamente.");
     } finally {
       setFinishing(false);
     }

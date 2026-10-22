@@ -4,7 +4,13 @@ import com.edufinance.backend.model.Licao;
 import com.edufinance.backend.model.Perfil;
 import com.edufinance.backend.model.Medalha;
 import com.edufinance.backend.model.ProgressoUsuario;
+import com.edufinance.backend.service.AssinaturaService;
+import com.edufinance.backend.service.AssinaturaService.AcaoAssinada;
 import com.edufinance.backend.service.OfensivaService;
+import com.edufinance.backend.service.RegraNegocioException;
+import com.edufinance.backend.service.UsuarioAtualService;
+import org.springframework.http.HttpStatus;
+import org.springframework.transaction.annotation.Transactional;
 import com.edufinance.backend.repository.LicaoRepository;
 import com.edufinance.backend.repository.PerfilRepository;
 import com.edufinance.backend.repository.MedalhaRepository;
@@ -18,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/licoes")
@@ -38,6 +45,12 @@ public class LicaoController {
 
     @Autowired
     private OfensivaService ofensivaService;
+
+    @Autowired
+    private UsuarioAtualService usuarioAtual;
+
+    @Autowired
+    private AssinaturaService assinaturaService;
 
     // Retorna todas as lições cadastradas
     @GetMapping
@@ -81,9 +94,22 @@ public class LicaoController {
         return progressoUsuarioRepository.findByUsuarioId(usuarioId);
     }
 
-    // Conclui uma lição, somando XP e verificando medalhas
+    // Conclui uma lição, somando XP e verificando medalhas.
+    // Com chave digital ativa, a conclusão precisa vir assinada no corpo ({ assinatura: { payload, assinatura } }).
     @PostMapping("/{id}/concluir")
-    public ResponseEntity<?> concluirLicao(@PathVariable Long id, @RequestParam Long usuarioId) {
+    @Transactional
+    public ResponseEntity<?> concluirLicao(@PathVariable Long id, @RequestParam Long usuarioId,
+                                           @RequestBody(required = false) Map<String, Object> corpo) {
+        // Só o próprio usuário conclui as suas aulas
+        if (!usuarioAtual.exigir().getId().equals(usuarioId)) {
+            throw new RegraNegocioException(HttpStatus.FORBIDDEN, "Você só pode concluir as suas próprias aulas.");
+        }
+        AcaoAssinada acao = assinaturaService.verificarDoUsuario(usuarioId, Set.of("AULA_CONCLUIDA"),
+                corpo == null ? null : corpo.get("assinatura"));
+        if (acao != null && !id.equals(AssinaturaService.comoLong(acao.dados().get("licaoId")))) {
+            throw new RegraNegocioException(HttpStatus.BAD_REQUEST, "A assinatura é de outra aula.");
+        }
+
         Optional<Licao> licaoOpt = licaoRepository.findById(id);
         Optional<Perfil> perfilOpt = perfilRepository.findById(usuarioId);
 
@@ -114,6 +140,9 @@ public class LicaoController {
                 progressoUsuarioRepository.save(progresso);
             }
         }
+
+        assinaturaService.registrarAcao(perfil.getId(), acao, "AULA_CONCLUIDA",
+                Map.of("licaoId", licao.getId(), "titulo", licao.getTitulo()), "licao:" + licao.getId());
 
         // 2. Adiciona 20 de XP na primeira conclusão
         int xpGanho = primeiraConclusao ? 20 : 0;

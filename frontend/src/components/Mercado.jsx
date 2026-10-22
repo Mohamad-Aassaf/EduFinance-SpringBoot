@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, ArrowDownUp, DollarSign, TrendingUp, TrendingDown } from "lucide-react";
 import { api } from "../api";
+import { assinarAcao } from "../chave/sessao";
 import ReactApexChart from "react-apexcharts";
 import { useDarkMode, chartTheme } from "../theme";
 import { toast } from "../motion";
@@ -123,13 +124,19 @@ export default function Mercado({ user, onUpdateUser }) {
     }
 
     try {
-      const response = await api.post("/api/portfolio/transacoes", {
-        usuarioId: user.id,
+      const dados = {
         stockCode: selectedStock.symbol,
         stockName: selectedStock.shortName,
-        transactionType: tradeTab,
         quantity: qty,
         price: selectedStock.regularMarketPrice,
+      };
+      // Com chave digital ativa, a operação vai assinada (pede a chave se não estiver carregada)
+      const assinatura = await assinarAcao(user, tradeTab === "buy" ? "COMPRA" : "VENDA", dados);
+      const response = await api.post("/api/portfolio/transacoes", {
+        usuarioId: user.id,
+        transactionType: tradeTab,
+        ...dados,
+        assinatura,
       });
 
       onUpdateUser(response.perfil);
