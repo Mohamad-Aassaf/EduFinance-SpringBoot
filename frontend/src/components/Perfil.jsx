@@ -35,6 +35,7 @@ import {
 import { api } from "../api";
 import { LocalizacaoForm } from "./rankingShared";
 import AdminPanelModal from "./AdminPanelModal";
+import ChaveDigitalCard from "../chave/ChaveDigitalCard";
 import { Avatar } from "./ui";
 import { toast, useMotionEnabled, setMotionEnabled } from "../motion";
 
@@ -565,6 +566,9 @@ export default function Perfil({ user, onUpdateUser, paletteId, onPaletteChange,
 
       {/* ── MICROINTERAÇÕES ─────────────────────────────────────────── */}
       <MicrointeracoesCard />
+
+      {/* ── CHAVE DIGITAL ───────────────────────────────────────────── */}
+      <ChaveDigitalCard user={user} />
 
       {/* ── PAINEL DO ADMINISTRADOR ───────────────────────────────── */}
       <div className="bg-white p-5 rounded-sm shadow-sm border border-slate-100 space-y-3">

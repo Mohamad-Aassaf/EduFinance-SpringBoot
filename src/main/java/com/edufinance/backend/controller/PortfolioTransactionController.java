@@ -4,6 +4,8 @@ import com.edufinance.backend.model.PortfolioTransaction;
 import com.edufinance.backend.model.Perfil;
 import com.edufinance.backend.repository.PortfolioTransactionRepository;
 import com.edufinance.backend.repository.PerfilRepository;
+import com.edufinance.backend.service.AssinaturaService;
+import com.edufinance.backend.service.AssinaturaService.AcaoAssinada;
 import com.edufinance.backend.service.RegraNegocioException;
 import com.edufinance.backend.service.UsuarioAtualService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,8 +14,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @RestController
 @RequestMapping("/api/portfolio/transacoes")
@@ -29,17 +33,30 @@ public class PortfolioTransactionController {
     @Autowired
     private UsuarioAtualService usuarioAtual;
 
+    @Autowired
+    private AssinaturaService assinaturaService;
+
     // Retorna todas as transacoes de um usuario (inclusive as ocultas, que ainda contam para a carteira)
     @GetMapping("/usuario/{usuarioId}")
     public List<PortfolioTransaction> getTransactionsByUsuario(@PathVariable Long usuarioId) {
         return transactionRepository.findByUsuarioIdOrderByCreatedAtDesc(usuarioId);
     }
 
-    // Cria uma nova transacao de compra ou venda e atualiza o saldo virtual do usuario autenticado
+    /*
+     * Cria uma nova transacao de compra ou venda e atualiza o saldo virtual do usuario autenticado.
+     * Se o usuario tem chave digital ativa, a operacao precisa vir assinada (campo "assinatura")
+     * e os dados usados sao os do conteudo assinado, nao os soltos no corpo da requisicao.
+     */
     @PostMapping
     @Transactional
-    public ResponseEntity<?> createTransaction(@RequestBody Map<String, Object> payload) {
+    public ResponseEntity<?> createTransaction(@RequestBody Map<String, Object> corpo) {
         Perfil perfil = usuarioAtual.exigir();
+        AcaoAssinada acao = assinaturaService.verificarDoUsuario(perfil.getId(), Set.of("COMPRA", "VENDA"), corpo.get("assinatura"));
+        Map<String, Object> payload = corpo;
+        if (acao != null) {
+            payload = new LinkedHashMap<>(acao.dados());
+            payload.put("transactionType", "COMPRA".equals(acao.dados().get("tipo")) ? "buy" : "sell");
+        }
 
         String stockCode;
         String stockName;
@@ -90,6 +107,11 @@ public class PortfolioTransactionController {
 
         transactionRepository.save(tx);
         perfilRepository.save(perfil);
+
+        // Entra na corrente de registros (assinada ou não)
+        assinaturaService.registrarAcao(perfil.getId(), acao, "buy".equals(transactionType) ? "COMPRA" : "VENDA",
+                Map.of("stockCode", stockCode, "stockName", stockName, "quantity", quantity, "price", price),
+                "transacao:" + tx.getId());
 
         return ResponseEntity.ok(Map.of(
             "transacao", tx,

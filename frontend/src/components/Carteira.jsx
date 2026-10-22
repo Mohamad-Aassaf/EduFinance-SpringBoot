@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Wallet, DollarSign, PieChart, TrendingUp, TrendingDown, ArrowDownUp, Trash2 } from "lucide-react";
 import { api } from "../api";
+import { assinarAcao } from "../chave/sessao";
 import ReactApexChart from "react-apexcharts";
 import { useDarkMode, chartTheme } from "../theme";
 import { toast } from "../motion";
@@ -112,13 +113,19 @@ export default function Carteira({ user, onUpdateUser }) {
     }
 
     try {
-      const response = await api.post("/api/portfolio/transacoes", {
-        usuarioId: user.id,
+      const dados = {
         stockCode: sellModal.stockCode,
         stockName: sellModal.stockName,
-        transactionType: "sell",
         quantity: sellQty,
-        price: sellModal.price
+        price: sellModal.price,
+      };
+      // Com chave digital ativa, a venda vai assinada (pede a chave se não estiver carregada)
+      const assinatura = await assinarAcao(user, "VENDA", dados);
+      const response = await api.post("/api/portfolio/transacoes", {
+        usuarioId: user.id,
+        transactionType: "sell",
+        ...dados,
+        assinatura,
       });
 
       onUpdateUser(response.perfil);

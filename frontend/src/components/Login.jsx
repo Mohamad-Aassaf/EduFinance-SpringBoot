@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { api } from "../api";
 import FundoMarca from "./FundoMarca";
-import { BookOpen, TrendingUp, Calculator, LineChart, Trophy, Bot, Sparkles } from "lucide-react";
+import LoginComChave from "../chave/LoginComChave";
+import { BookOpen, TrendingUp, Calculator, LineChart, Trophy, Bot, Sparkles, KeyRound } from "lucide-react";
 
 export default function Login({ onLoginSuccess }) {
-  const [step, setStep] = useState("login"); // "login" | "register" | "recover_request" | "recover_reset"
+  const [step, setStep] = useState("login"); // "login" | "register" | "recover_request" | "recover_reset" | "chave"
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -152,12 +153,14 @@ export default function Login({ onLoginSuccess }) {
               {step === "register" && "Criar conta"}
               {step === "recover_request" && "Recuperar senha"}
               {step === "recover_reset" && "Definir nova senha"}
+              {step === "chave" && "Entrar com chave digital"}
             </h2>
             <p className="text-xs text-slate-400 mt-1 font-semibold">
               {step === "login" && "Acesse sua plataforma de educação financeira"}
               {step === "register" && "Comece sua jornada de educação financeira"}
               {step === "recover_request" && "Digite seu e-mail para receber o código"}
               {step === "recover_reset" && "Digite o código de verificação e sua nova senha"}
+              {step === "chave" && "Use o arquivo da chave do seu pendrive, sem a senha da conta"}
             </p>
           </div>
 
@@ -173,6 +176,9 @@ export default function Login({ onLoginSuccess }) {
             </div>
           )}
 
+          {step === "chave" ? (
+            <LoginComChave onEntrou={onLoginSuccess} />
+          ) : (
           <form className="space-y-4" onSubmit={handleSubmit}>
             {step === "register" && (
               <div>
@@ -267,7 +273,19 @@ export default function Login({ onLoginSuccess }) {
                   step === "register" ? "Cadastrar" :
                     step === "recover_request" ? "Enviar Código" : "Redefinir Senha"}
             </button>
+
+            {step === "login" && (
+              <button
+                type="button"
+                onClick={() => { setError(""); setMessage(""); setStep("chave"); }}
+                className="w-full py-2.5 px-4 rounded-sm border border-slate-200 font-bold text-xs text-slate-600 hover:border-slate-300 hover:text-slate-800 transition flex items-center justify-center gap-2"
+              >
+                <KeyRound className="w-4 h-4" />
+                Entrar com chave digital
+              </button>
+            )}
           </form>
+          )}
 
           <div className="text-center">
             {step === "login" && (
@@ -288,7 +306,7 @@ export default function Login({ onLoginSuccess }) {
                 Já tem conta? Entre
               </button>
             )}
-            {(step === "recover_request" || step === "recover_reset") && (
+            {(step === "recover_request" || step === "recover_reset" || step === "chave") && (
               <button
                 onClick={handleBackToLogin}
                 className="text-[10px] font-extrabold hover:underline"

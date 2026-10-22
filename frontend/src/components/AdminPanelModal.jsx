@@ -6,16 +6,20 @@
  * - Servidor da IA: em qual servidor Ollama o FinBot roda (vale para todos os usuários)
  * - Saldo virtual: define o saldo da conta logada, para testes no Mercado
  * - Trilha: zera o progresso da trilha de aprendizado da conta logada
+ * - Chaves: chave digital do administrador e aprovação/revogação das chaves dos usuários.
+ *   Se existir chave de administrador, as ações sobre dados de usuários são assinadas com ela.
  */
 
 import { useState, useEffect } from "react";
 import {
   Server, CheckCircle2, AlertCircle, RefreshCw, X, Laptop, Monitor, Globe, Lock, Users,
-  Wallet, Route, RotateCcw, ShieldCheck,
+  Wallet, Route, RotateCcw, ShieldCheck, KeyRound,
 } from "lucide-react";
 import { api } from "../api";
 import { toast } from "../motion";
 import { Button, inputClass, labelClass } from "./ui";
+import AbaChavesAdmin from "../chave/AbaChavesAdmin";
+import { assinarComoAdmin, descarregarChave, useChaveCarregada } from "../chave/sessao";
 
 const SALDO_INICIAL = 100000;
 
@@ -47,6 +51,7 @@ const ABAS = [
   { id: "ia", label: "Servidor da IA", icon: Server },
   { id: "saldo", label: "Saldo virtual", icon: Wallet },
   { id: "trilha", label: "Trilha", icon: Route },
+  { id: "chaves", label: "Chaves", icon: KeyRound },
 ];
 
 const formatarReais = (v) => `R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
@@ -199,7 +204,7 @@ function AbaServidorIa({ password, configInicial, onClose, onConfigUpdated }) {
 }
 
 // ─── Aba: saldo virtual ────────────────────────────────────────────────────
-function AbaSaldo({ password, user, onUpdateUser }) {
+function AbaSaldo({ password, user, onUpdateUser, assinarAdmin }) {
   const [valor, setValor] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -208,7 +213,8 @@ function AbaSaldo({ password, user, onUpdateUser }) {
     setSaving(true);
     setError("");
     try {
-      const perfil = await api.put("/api/admin/me/saldo", { password, valor: novoValor });
+      const assinaturaAdmin = await assinarAdmin("ADMIN_SALDO", user.id, { valor: novoValor });
+      const perfil = await api.put("/api/admin/me/saldo", { password, valor: novoValor, assinaturaAdmin });
       onUpdateUser?.(perfil);
       setValor("");
       toast(`Saldo virtual definido em ${formatarReais(perfil.saldoVirtual)}.`);
@@ -268,7 +274,7 @@ function AbaSaldo({ password, user, onUpdateUser }) {
 }
 
 // ─── Aba: trilha ───────────────────────────────────────────────────────────
-function AbaTrilha({ password, onUpdateUser, onTrilhaResetada }) {
+function AbaTrilha({ password, user, onUpdateUser, onTrilhaResetada, assinarAdmin }) {
   const [confirmando, setConfirmando] = useState(false);
   const [resetando, setResetando] = useState(false);
   const [error, setError] = useState("");
@@ -277,7 +283,8 @@ function AbaTrilha({ password, onUpdateUser, onTrilhaResetada }) {
     setResetando(true);
     setError("");
     try {
-      const perfil = await api.post("/api/admin/me/trilha/reset", { password });
+      const assinaturaAdmin = await assinarAdmin("ADMIN_RESET_TRILHA", user.id);
+      const perfil = await api.post("/api/admin/me/trilha/reset", { password, assinaturaAdmin });
       onUpdateUser?.(perfil);
       onTrilhaResetada?.();
       setConfirmando(false);
@@ -327,16 +334,32 @@ export default function AdminPanelModal({ isOpen, onClose, onConfigUpdated, user
   const [unlocking, setUnlocking] = useState(false);
   const [authError, setAuthError] = useState("");
   const [aba, setAba] = useState("ia");
+  // Situação da chave do administrador (de /api/admin/chave/status)
+  const [statusAdmin, setStatusAdmin] = useState(null);
+  const chaveAdminCarregada = useChaveCarregada("admin");
 
-  // Sempre que a janela fecha, a senha é esquecida
+  // Sempre que a janela fecha, a senha é esquecida e a chave do administrador sai da memória
   useEffect(() => {
     if (!isOpen) {
       setPassword("");
       setConfigIa(null);
       setAuthError("");
       setAba("ia");
+      setStatusAdmin(null);
+      descarregarChave("admin");
     }
   }, [isOpen]);
+
+  async function atualizarStatusAdmin() {
+    const status = await api.post("/api/admin/chave/status", { password });
+    setStatusAdmin(status);
+    return status;
+  }
+
+  // Assina uma ação do painel com a chave do administrador (se ela existir); a sequência vem sempre do servidor
+  async function assinarAdmin(tipo, usuarioId, dados) {
+    return assinarComoAdmin(await atualizarStatusAdmin(), tipo, usuarioId, dados);
+  }
 
   useEffect(() => {
     if (!isOpen) return;
@@ -350,7 +373,9 @@ export default function AdminPanelModal({ isOpen, onClose, onConfigUpdated, user
     setUnlocking(true);
     setAuthError("");
     try {
-      setConfigIa(await api.post("/api/finbot/admin/login", { password }));
+      const config = await api.post("/api/finbot/admin/login", { password });
+      await atualizarStatusAdmin();
+      setConfigIa(config);
     } catch (err) {
       setAuthError(err.message || "Não foi possível entrar.");
     } finally {
@@ -465,9 +490,32 @@ export default function AdminPanelModal({ isOpen, onClose, onConfigUpdated, user
             {aba === "ia" && (
               <AbaServidorIa password={password} configInicial={configIa} onClose={onClose} onConfigUpdated={onConfigUpdated} />
             )}
-            {aba === "saldo" && <AbaSaldo password={password} user={user} onUpdateUser={onUpdateUser} />}
+            {(aba === "saldo" || aba === "trilha") && statusAdmin?.chave
+              && chaveAdminCarregada?.chavePublica !== statusAdmin.chave.chavePublica && (
+              <p className="mx-5 mt-4 p-2.5 rounded-sm bg-amber-50 border border-amber-200 text-[11px] font-semibold text-amber-800 flex items-center gap-1.5">
+                <KeyRound className="w-3.5 h-3.5 shrink-0" />
+                Esta ação precisa da assinatura do administrador. Carregue a chave na aba Chaves.
+              </p>
+            )}
+            {aba === "saldo" && (
+              <AbaSaldo password={password} user={user} onUpdateUser={onUpdateUser} assinarAdmin={assinarAdmin} />
+            )}
             {aba === "trilha" && (
-              <AbaTrilha password={password} onUpdateUser={onUpdateUser} onTrilhaResetada={onTrilhaResetada} />
+              <AbaTrilha
+                password={password}
+                user={user}
+                onUpdateUser={onUpdateUser}
+                onTrilhaResetada={onTrilhaResetada}
+                assinarAdmin={assinarAdmin}
+              />
+            )}
+            {aba === "chaves" && (
+              <AbaChavesAdmin
+                password={password}
+                statusAdmin={statusAdmin}
+                onStatusAlterado={atualizarStatusAdmin}
+                assinarAdmin={assinarAdmin}
+              />
             )}
           </>
         )}
