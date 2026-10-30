@@ -28,6 +28,8 @@ services:
       SPRING_DATASOURCE_PASSWORD: root
       # Dentro do container, localhost é o próprio container; o Ollama da máquina fica em host.docker.internal
       OLLAMA_NOTEBOOK_URL: http://host.docker.internal:11434
+      # Senha do painel admin: defina FINBOT_ADMIN_PASSWORD no arquivo .env (fora do git)
+      FINBOT_ADMIN_PASSWORD: ${FINBOT_ADMIN_PASSWORD:-edufinance}
     volumes:
       # Documentos do modo fechado do FinBot; alterações na pasta valem sem reconstruir a imagem
       - ./base-conhecimento:/app/base-conhecimento:ro
